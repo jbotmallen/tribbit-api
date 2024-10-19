@@ -7,10 +7,12 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
+        console.log('No token provided');
         return responseHandler(res, 401, 'Unauthorized');
     }
 
     try {
+        console.log('Verifying token');
         const decoded = verify(token, process.env.JWT_SECRET!);
         res.cookie('token', decoded, {
             httpOnly: true,
