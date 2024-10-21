@@ -1,7 +1,6 @@
 import rateLimit from "express-rate-limit";
 import { FIFTEEN_MINUTES, MAX_REQUESTS } from "../utils/constants";
 
-
 const limiter = rateLimit({
     windowMs: FIFTEEN_MINUTES,
     max: MAX_REQUESTS,

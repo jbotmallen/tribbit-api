@@ -5,6 +5,7 @@ import { genericError, responseHandler } from '../utils/response-handlers';
 import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
+import { JwtPayload, verify } from 'jsonwebtoken';
 
 dotenv.config();
 
@@ -12,9 +13,15 @@ const getUserHabits = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
-        const decodedToken = req.cookies.token;
+        const token = req.cookies.token;
 
-        const habits = await Habit.find({ user_id: decodedToken.id, deleted_at: null });
+        if (!token) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+
+        const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
 
         responseHandler(res, 200, 'Habits retrieved successfully', habits);
     } catch (error) {
@@ -27,7 +34,11 @@ const createHabit = async (req: Request, res: Response) => {
         await connectToDatabase();
 
         const { name, goal } = req.body;
-        const decodedToken = req.cookies.token;
+        const token = req.cookies.token;
+
+        if (!token) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
 
         if (!name || !goal) {
             responseHandler(res, 400, 'Please provide all required fields');
@@ -39,7 +50,11 @@ const createHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, error.details[0].message);
         }
 
-        const habit = await Habit.create({ name, goal, user_id: decodedToken.id });
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+
+        console.log(decoded.id);
+
+        const habit = await Habit.create({ name, goal, user_id: decoded.id });
 
         responseHandler(res, 201, 'Habit created successfully', habit);
     } catch (error) {

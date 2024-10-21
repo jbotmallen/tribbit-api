@@ -14,11 +14,10 @@ const genericError = (res: Response, error: any) => {
     console.error(error);
     if (!res.headersSent) {
         const status = 500;
-        const message = error ? error.message : "Internal Server Error";
 
         res.status(status).json({
             status: status,
-            message: message,
+            message: "Internal Server Error",
         });
     }
 };

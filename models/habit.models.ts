@@ -1,3 +1,4 @@
+import { required } from "joi";
 import { model, Schema, models, Model, Types } from "mongoose";
 
 type HabitDocument = Document & {
@@ -12,7 +13,7 @@ type HabitDocument = Document & {
 const habitSchema = new Schema({
     name: { type: String, required: true },
     goal: { type: Number, required: true },
-    user_id: { type: Types.ObjectId, ref: "User" },
+    user_id: { type: Types.ObjectId, ref: "User", required: true },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
     deleted_at: { type: Date, default: null },

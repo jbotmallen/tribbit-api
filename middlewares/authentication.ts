@@ -1,33 +1,35 @@
 import { Request, Response, NextFunction } from "express";
-import { verify } from 'jsonwebtoken';
+import { JwtPayload, verify } from 'jsonwebtoken';
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { ONE_DAY } from "../utils/constants";
+import { isJwtError } from "../utils/sanitation";
 
 const auth_check = (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.split(" ")[1];
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-        console.log('No token provided');
         return responseHandler(res, 401, 'Unauthorized');
     }
 
     try {
-        console.log('Verifying token');
-        const decoded = verify(token, process.env.JWT_SECRET!);
-        res.cookie('token', decoded, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: ONE_DAY,
-        });
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        
+        if(decoded.exp! * 1000 < Date.now()) {
+            return responseHandler(res, 401, 'Session expired. Please log in again.');
+        }
 
         next();
     } catch (error) {
+        if (isJwtError(error) && error.name === 'TokenExpiredError') {
+            return responseHandler(res, 401, 'Session expired. Please log in again.');
+        }
         genericError(res, error);
     }
 };
 
 const auth_prevention = (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization?.split(" ")[1] || req.cookies.token;
+
     if (token) {
         try {
             verify(token, process.env.JWT_SECRET!);
