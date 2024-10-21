@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { JwtPayload, verify } from 'jsonwebtoken';
 import { genericError, responseHandler } from "../utils/response-handlers";
-import { ONE_DAY } from "../utils/constants";
-import { isJwtError } from "../utils/sanitation";
+import { isJwtError } from "../utils/error-handler";
 
 const auth_check = (req: Request, res: Response, next: NextFunction) => {
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
@@ -14,7 +13,7 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
     try {
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
         
-        if(decoded.exp! * 1000 < Date.now()) {
+        if(decoded.exp! * 1000 < Date.now()) { // Multiply 1000 to convert seconds to milliseconds
             return responseHandler(res, 401, 'Session expired. Please log in again.');
         }
 

@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
 import { JwtPayload, verify } from 'jsonwebtoken';
-import { createAccomplishedStatus, getHabitAccomplishedStatus } from './accomplished.controllers';
+import { createAccomplishedStatus, getHabitAccomplishedStatus, getHabitStreak } from './accomplished.controllers';
 import { Accomplished } from '../models/accomplished.models';
 
 dotenv.config();
@@ -25,14 +25,13 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
 
-        const statuses = await Promise.all(habits.map(habit => getHabitAccomplishedStatus(habit._id, 
-            new Date().toISOString().split('T')[0])));
-            
-        const data = habits.map((habit, index) => {
-            return { habit, accomplished: statuses[index] };
-        });
+        const results = await Promise.all(habits.map(async habit => {
+            const accomplishedStatus = await getHabitAccomplishedStatus(habit._id, new Date().toISOString().split('T')[0]);
+            const streak = await getHabitStreak(habit._id);
+            return { habit, accomplished: accomplishedStatus, streak };
+        }));
 
-        responseHandler(res, 200, 'Habits retrieved successfully', data);
+        responseHandler(res, 200, 'Habits retrieved successfully', results);
     } catch (error) {
         genericError(res, error);
     }
