@@ -1,13 +1,9 @@
-import { required } from "joi";
 import { model, Schema, models, Model, Types } from "mongoose";
 
 type HabitDocument = Document & {
     name: string;
     goal: number;
     user_id: string;
-    created_at: Date;
-    updated_at: Date;
-    deleted_at: Date;
 }
 
 const habitSchema = new Schema({

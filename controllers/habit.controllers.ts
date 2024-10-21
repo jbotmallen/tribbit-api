@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
 import { JwtPayload, verify } from 'jsonwebtoken';
+import { createAccomplishedStatus, getHabitAccomplishedStatus } from './accomplished.controllers';
+import { Accomplished } from '../models/accomplished.models';
 
 dotenv.config();
 
@@ -23,7 +25,14 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
 
-        responseHandler(res, 200, 'Habits retrieved successfully', habits);
+        const statuses = await Promise.all(habits.map(habit => getHabitAccomplishedStatus(habit._id, 
+            new Date().toISOString().split('T')[0])));
+            
+        const data = habits.map((habit, index) => {
+            return { habit, accomplished: statuses[index] };
+        });
+
+        responseHandler(res, 200, 'Habits retrieved successfully', data);
     } catch (error) {
         genericError(res, error);
     }
@@ -52,11 +61,10 @@ const createHabit = async (req: Request, res: Response) => {
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
-        console.log(decoded.id);
-
         const habit = await Habit.create({ name, goal, user_id: decoded.id });
+        const status = await createAccomplishedStatus(habit._id);
 
-        responseHandler(res, 201, 'Habit created successfully', habit);
+        responseHandler(res, 201, 'Habit created successfully', { habit, status });
     } catch (error) {
         genericError(res, error);
     }
@@ -90,9 +98,7 @@ const deleteHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
         }
 
-        await Habit.findByIdAndUpdate(id, {
-            deleted_at: Date.now()
-        });
+        await Promise.all([Habit.findByIdAndDelete(id), Accomplished.deleteMany({ habit_id: id })]);
 
         responseHandler(res, 200, 'Habit deleted successfully');
     } catch (error) {
