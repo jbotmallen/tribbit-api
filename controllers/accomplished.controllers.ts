@@ -30,7 +30,6 @@ const getHabitStreak = async (id: Types.ObjectId) => {
         const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
 
         if (accomplished.length === 0) {
-            console.log('No streak');
             return 0;
         }
 

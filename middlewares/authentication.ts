@@ -7,13 +7,14 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-        return responseHandler(res, 401, 'Unauthorized');
+        responseHandler(res, 401, 'Unauthorized');
+        return;
     }
 
     try {
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
-        
-        if(decoded.exp! * 1000 < Date.now()) { // Multiply 1000 to convert seconds to milliseconds
+
+        if (decoded.exp! * 1000 < Date.now()) { // Multiply 1000 to convert seconds to milliseconds
             return responseHandler(res, 401, 'Session expired. Please log in again.');
         }
 
@@ -27,7 +28,7 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const auth_prevention = (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.split(" ")[1] || req.cookies.token;
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
     if (token) {
         try {

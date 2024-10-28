@@ -1,8 +1,9 @@
-import express, { Express } from "express";
+import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import router from "./routes";
 import cookieParser from "cookie-parser";
 import rateLimiter from "./middlewares/rate-limiter";
+import { responseHandler } from "./utils/response-handlers";
 
 dotenv.config();
 
@@ -16,6 +17,9 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+app.all("*", (req: Request, res: Response) => {
+  responseHandler(res, 404, "Route not found");
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

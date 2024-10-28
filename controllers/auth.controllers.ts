@@ -18,6 +18,7 @@ const registerUser = async (req: Request, res: Response) => {
 
         if (!email || !password || !username) {
             responseHandler(res, 400, 'Please provide all required fields');
+            return;
         }
 
         const [existingEmail, existingUsername] = await Promise.all
@@ -25,6 +26,7 @@ const registerUser = async (req: Request, res: Response) => {
 
         if (existingEmail || existingUsername) {
             responseHandler(res, 400, 'User with that email or username already exists');
+            return;
         }
 
         const salt = await genSalt(Number(process.env.SALT_ROUNDS));
@@ -48,18 +50,21 @@ const loginUser = async (req: Request, res: Response) => {
 
         if (!identifier || !password) {
             responseHandler(res, 400, 'Please provide all required fields');
+            return;
         }
 
         const existingUser = await getUserByEmailOrUsername(identifier);
 
-        if (!existingUser) {
-            return responseHandler(res, 404, 'User not found');
+        if (!existingUser || !existingUser.password) {
+            responseHandler(res, 404, 'User not found');
+            return;
         }
 
         const isMatch = await compare(password, existingUser.password);
 
         if (!isMatch) {
             responseHandler(res, 400, 'Invalid credentials');
+            return;
         }
 
         const token = sign({

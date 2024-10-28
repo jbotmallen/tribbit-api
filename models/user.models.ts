@@ -4,6 +4,7 @@ type UserDocument = Document & {
     email: string;
     username: string;
     password: string;
+    deleted_at: Date;
 }
 
 const userSchema = new Schema({

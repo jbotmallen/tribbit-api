@@ -18,12 +18,18 @@ const getUserHabits = async (req: Request, res: Response) => {
         const token = req.cookies.token;
 
         if (!token) {
-            return responseHandler(res, 401, 'Unauthorized');
+            responseHandler(res, 401, 'Unauthorized');
+            return;
         }
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
         const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
+
+        if(habits.length === 0) {
+            responseHandler(res, 404, 'No habits found');
+            return;
+        }
 
         const results = await Promise.all(habits.map(async habit => {
             const accomplishedStatus = await getHabitAccomplishedStatus(habit._id, new Date().toISOString().split('T')[0]);
@@ -45,11 +51,13 @@ const createHabit = async (req: Request, res: Response) => {
         const token = req.cookies.token;
 
         if (!token) {
-            return responseHandler(res, 401, 'Unauthorized');
+            responseHandler(res, 401, 'Unauthorized');
+            return;
         }
 
         if (!name || !goal) {
             responseHandler(res, 400, 'Please provide all required fields');
+            return;
         }
 
         const { error } = sanitize(habitSchema, { name, goal });
@@ -59,6 +67,13 @@ const createHabit = async (req: Request, res: Response) => {
         }
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+
+        const existingHabit = await Habit.findOne({ name, user_id: decoded.id });
+
+        if (existingHabit) {
+            responseHandler(res, 400, 'Habit already exists');
+            return;
+        }
 
         const habit = await Habit.create({ name, goal, user_id: decoded.id });
         const status = await createAccomplishedStatus(habit._id);
@@ -77,6 +92,7 @@ const updateHabit = async (req: Request, res: Response) => {
 
         if (!id || !name || !goal) {
             responseHandler(res, 400, 'Please provide all required fields');
+            return;
         }
 
         const habit = await Habit.findByIdAndUpdate(id, { name, goal }, { new: true });
@@ -95,6 +111,7 @@ const deleteHabit = async (req: Request, res: Response) => {
 
         if (!id) {
             responseHandler(res, 400, 'Please provide all required fields');
+            return;
         }
 
         await Promise.all([Habit.findByIdAndDelete(id), Accomplished.deleteMany({ habit_id: id })]);

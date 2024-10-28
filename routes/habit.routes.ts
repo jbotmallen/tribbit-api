@@ -5,8 +5,8 @@ import { auth_check } from "../middlewares/authentication";
 const habitRouter: IRouter = Router();
 
 habitRouter.get("/", auth_check, getUserHabits);
-habitRouter.post("/new", auth_check, createHabit);
-habitRouter.put("/update", auth_check, updateHabit);
-habitRouter.delete("/delete", auth_check, deleteHabit);
+habitRouter.post("/", auth_check, createHabit);
+habitRouter.put("/", auth_check, updateHabit);
+habitRouter.delete("/", auth_check, deleteHabit);
 
 export default habitRouter;
