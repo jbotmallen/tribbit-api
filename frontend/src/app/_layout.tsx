@@ -16,7 +16,7 @@ export { ErrorBoundary } from "expo-router";
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: "(tabs)",
+  initialRouteName: "(auth)",
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -24,7 +24,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    Inter: require("@assets/fonts/Inter-VariableFont.ttf"),
     ...FontAwesome.font,
   });
 
@@ -50,10 +50,26 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const segments = useSegments();
   console.log(segments);
-
+  const theme = {
+    ...(colorScheme === "dark" ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colorScheme === "dark" ? DarkTheme.colors : DefaultTheme.colors),
+    },
+    fonts: {
+      regular: {
+        fontFamily: "Inter",
+        fontWeight: "normal",
+      },
+      bold: {
+        fontFamily: "Inter",
+        fontWeight: "bold",
+      },
+    },
+  };
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
+    <ThemeProvider value={theme}>
+      <Stack screenOptions={{ headerTitleStyle: { fontFamily: "Inter" } }}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       </Stack>
