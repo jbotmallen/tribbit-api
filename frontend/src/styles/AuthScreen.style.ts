@@ -43,6 +43,11 @@ const styles = StyleSheet.create({
     color: "blue",
     textDecorationLine: "underline",
   },
+  errorText: {
+    color: "red",
+    fontSize: 12,
+    marginTop: 4,
+  },
 });
 
 export default styles;

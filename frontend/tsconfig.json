@@ -8,8 +8,8 @@
       "@components/*": ["src/components/*"],
       "@assets/*": ["src/assets/*"],
       "@constants/*": ["src/constants/*"],
-      "@utils/*": ["src/utils/*"],
-      "@styles/*": ["src/styles/*"]     
+      "@styles/*": ["src/styles/*"],
+      "@utils/*": ["src/utils/*"]
     }
   },
   "include": [
