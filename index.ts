@@ -4,12 +4,25 @@ import router from "./routes";
 import cookieParser from "cookie-parser";
 import rateLimiter from "./middlewares/rate-limiter";
 import { responseHandler } from "./utils/response-handlers";
+import cors from "cors";
 
 dotenv.config();
 
 const app: Express = express();
 const PORT: string | number = process.env.SERVER_DEFAULT_PORT || 3000;
+const allowedOrigins = ["http://localhost:3000", process.env.CLIENT_URL];
+const corsOptions: cors.CorsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+};
 
+app.use(cors(corsOptions));
 app.use(rateLimiter);
 
 app.use(express.json());
