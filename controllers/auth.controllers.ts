@@ -80,7 +80,13 @@ const loginUser = async (req: Request, res: Response) => {
             maxAge: ONE_DAY
         });
 
-        responseHandler(res, 200, 'User logged in successfully', token);
+        responseHandler(res, 200, 'User logged in successfully', {
+            token,
+            user: {
+                username: existingUser.username,
+                email: existingUser.email
+            }
+        });
     } catch (error) {
         genericError(res, error);
     }
