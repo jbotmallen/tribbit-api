@@ -83,6 +83,7 @@ const loginUser = async (req: Request, res: Response) => {
         responseHandler(res, 200, 'User logged in successfully', {
             token,
             user: {
+                id: existingUser._id,
                 username: existingUser.username,
                 email: existingUser.email
             }
