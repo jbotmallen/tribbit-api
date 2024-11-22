@@ -24,10 +24,12 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
+        console.log('Decoded:', decoded);
+
         const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
 
         if(habits.length === 0) {
-            responseHandler(res, 404, 'No habits found');
+            responseHandler(res, 204, 'No habits found');
             return;
         }
 

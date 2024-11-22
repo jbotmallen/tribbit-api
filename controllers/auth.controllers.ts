@@ -77,7 +77,8 @@ const loginUser = async (req: Request, res: Response) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: ONE_DAY
+            maxAge: ONE_DAY,
+            sameSite: 'strict'
         });
 
         responseHandler(res, 200, 'User logged in successfully', {
