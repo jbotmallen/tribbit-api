@@ -94,8 +94,9 @@ const updateHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
+        const updatedAt = new Date().toISOString();
 
-        const habit = await Habit.findByIdAndUpdate(id, { name, goal }, { new: true });
+        const habit = await Habit.findByIdAndUpdate(id, { name, goal, updated_at: updatedAt }, { new: true });
 
         responseHandler(res, 200, 'Habit updated successfully', habit);
     } catch (error) {
