@@ -6,10 +6,44 @@ import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
 import { JwtPayload, verify } from 'jsonwebtoken';
-import { createAccomplishedStatus, getHabitAccomplishedStatus, getHabitStreak } from './accomplished.controllers';
+import { createAccomplishedStatus, getHabitAccomplishedStatus, getHabitAllAccomplishedStatuses, getHabitStreak } from './accomplished.controllers';
 import { Accomplished } from '../models/accomplished.models';
 
 dotenv.config();
+
+const getHabitAccomplishedDates = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { id } = req.params;
+
+        if (!id) {
+            responseHandler(res, 400, 'Please provide all required fields');
+            return;
+        }
+
+        const habit = await Habit.findById(id);
+
+        if (!habit) {
+            responseHandler(res, 204, 'Habit not found');
+            return;
+        }
+
+        const [accomplished, streak] = await Promise.all([
+            getHabitAllAccomplishedStatuses(habit._id),
+            getHabitStreak(habit._id)
+        ]);
+
+        if (!accomplished || accomplished.length === 0) {
+            responseHandler(res, 204, 'No accomplished dates found', { habit, accomplished: [], streak });
+            return;
+        }
+
+        responseHandler(res, 200, 'Accomplished dates retrieved successfully', { habit, accomplished, streak });
+    } catch (error) {
+        genericError(res, error);
+    }
+};
 
 const getUserHabits = async (req: Request, res: Response) => {
     try {
@@ -26,7 +60,7 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
 
-        if(habits.length === 0) {
+        if (habits.length === 0) {
             responseHandler(res, 204, 'No habits found');
             return;
         }
@@ -123,4 +157,4 @@ const deleteHabit = async (req: Request, res: Response) => {
     }
 };
 
-export { createHabit, getUserHabits, updateHabit, deleteHabit };
+export { createHabit, getUserHabits, getHabitAccomplishedDates, updateHabit, deleteHabit };
