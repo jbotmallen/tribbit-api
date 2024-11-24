@@ -55,7 +55,7 @@ const loginUser = async (req: Request, res: Response) => {
 
         const existingUser = await getUserByEmailOrUsername(identifier);
 
-        if (!existingUser || !existingUser.password) {
+        if (!existingUser || !existingUser.password || existingUser.deleted_at !== null) {
             responseHandler(res, 404, 'User not found');
             return;
         }
