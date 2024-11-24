@@ -50,7 +50,7 @@ const getUserStreak = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
-        const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+        const token = req.cookies.token;
         if (!token) {
             return responseHandler(res, 401, 'Unauthorized');
         }
@@ -58,14 +58,48 @@ const getUserStreak = async (req: Request, res: Response) => {
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
         const id = decoded.id;
 
+        if (!id) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
         const habits = await Habit.find({ user_id: id, deleted_at: null });
+
         if (habits.length === 0) {
             return responseHandler(res, 404, 'No habits found');
         }
 
+        const { frequency } = req.params;
+        let start: Date | null, end: Date | null;
+
+        switch (frequency) {
+            case 'weekly':
+                start = new Date();
+                start.setDate(start.getDate() - 7);
+                end = new Date();
+                break;
+            case 'monthly':
+                start = new Date();
+                start.setMonth(start.getMonth() - 1);
+                end = new Date();
+                break;
+            case 'all time':
+                start = null;
+                end = null;
+                break;
+            default:
+                return responseHandler(res, 400, 'Invalid frequency');
+        }
+
+        const accomplishedQuery: { created_at?: { $gte: Date, $lte: Date } } = {};
+
+        if (start && end) {
+            accomplishedQuery.created_at = { $gte: start, $lte: end };
+        }
+        
         const accomplished = await Accomplished.find({
             habit_id: { $in: habits.map(habit => habit._id) },
-            accomplished: true
+            accomplished: true,
+            ...accomplishedQuery
         }).sort({ date_changed: 1 });
 
         if (accomplished.length === 0) {
