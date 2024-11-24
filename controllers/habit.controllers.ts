@@ -6,8 +6,9 @@ import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
 import { JwtPayload, verify } from 'jsonwebtoken';
-import { createAccomplishedStatus, getHabitAccomplishedStatus, getHabitAllAccomplishedStatuses, getHabitStreak } from './accomplished.controllers';
+import { createAccomplishedStatus, getHabitAccomplishedStatus, getHabitAllAccomplishedStatuses, getHabitStreak, updateAccomplishedStatus } from './accomplished.controllers';
 import { Accomplished } from '../models/accomplished.models';
+import { getUserByEmailOrUsername } from './user.controllers';
 
 dotenv.config();
 
@@ -58,6 +59,13 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
+        const existingUser = await getUserByEmailOrUsername(decoded.email);
+
+        if (!existingUser) {
+            responseHandler(res, 404, 'User not found');
+            return;
+        }
+
         const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
 
         if (habits.length === 0) {
@@ -66,7 +74,7 @@ const getUserHabits = async (req: Request, res: Response) => {
         }
 
         const results = await Promise.all(habits.map(async habit => {
-            const accomplishedStatus = await getHabitAccomplishedStatus(habit._id, new Date().toISOString().split('T')[0]);
+            const accomplishedStatus = await createAccomplishedStatus(habit._id);
             const streak = await getHabitStreak(habit._id);
             return { habit, accomplished: accomplishedStatus, streak };
         }));
@@ -118,6 +126,37 @@ const createHabit = async (req: Request, res: Response) => {
     }
 };
 
+const updateHabitAccomplishedStatus = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { id } = req.params;
+
+        if (!id) {
+            responseHandler(res, 400, 'Please provide all required fields');
+            return;
+        }
+
+        const existingHabit = await Habit.findById(id);
+
+        if (!existingHabit) {
+            responseHandler(res, 204, 'Habit not found');
+            return;
+        }
+
+        const accomplished = await updateAccomplishedStatus(existingHabit._id);
+
+        if (!accomplished) {
+            responseHandler(res, 204, 'Accomplished status not found');
+            return;
+        }
+
+        responseHandler(res, 200, 'Accomplished status updated successfully', accomplished);
+    } catch (error) {
+        genericError(res, error);
+    }
+}
+
 const updateHabit = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -157,4 +196,4 @@ const deleteHabit = async (req: Request, res: Response) => {
     }
 };
 
-export { createHabit, getUserHabits, getHabitAccomplishedDates, updateHabit, deleteHabit };
+export { createHabit, getUserHabits, getHabitAccomplishedDates, updateHabit, updateHabitAccomplishedStatus, deleteHabit };

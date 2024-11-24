@@ -85,6 +85,12 @@ const createAccomplishedStatus = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
 
+        const existingAccomplished = await getHabitAccomplishedStatus(id, new Date().toISOString());
+
+        if (existingAccomplished !== null) {
+            return existingAccomplished;
+        }
+
         const accomplished = await Accomplished.create({ habit_id: id, accomplished: false });
 
         return accomplished ? accomplished : null;
