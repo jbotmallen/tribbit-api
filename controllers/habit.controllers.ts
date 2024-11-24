@@ -6,9 +6,10 @@ import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
 import { JwtPayload, verify } from 'jsonwebtoken';
-import { createAccomplishedStatus, getHabitAccomplishedStatus, getHabitAllAccomplishedStatuses, getHabitStreak, updateAccomplishedStatus } from './accomplished.controllers';
+import { createAccomplishedStatus, getHabitAllAccomplishedStatuses, updateAccomplishedStatus } from './accomplished.controllers';
 import { Accomplished } from '../models/accomplished.models';
 import { getUserByEmailOrUsername } from './user.controllers';
+import { getHabitStreak } from './streaks.controllers';
 
 dotenv.config();
 
