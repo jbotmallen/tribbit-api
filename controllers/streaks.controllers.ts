@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished } from "../models/accomplished.models";
-import { differenceInCalendarDays, isToday } from "date-fns";
+import { differenceInCalendarDays, format, isToday } from "date-fns";
 import { ONE_DAY } from "../utils/constants";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
@@ -51,57 +51,102 @@ const getUserStreak = async (req: Request, res: Response) => {
         await connectToDatabase();
 
         const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-
         if (!token) {
-            responseHandler(res, 401, 'Unauthorized');
-            return;
+            return responseHandler(res, 401, 'Unauthorized');
         }
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
-
         const id = decoded.id;
 
         const habits = await Habit.find({ user_id: id, deleted_at: null });
-
         if (habits.length === 0) {
-            responseHandler(res, 404, 'No habits found');
-            return;
+            return responseHandler(res, 404, 'No habits found');
         }
-
-        const currentDate = new Date();
-        const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
         const accomplished = await Accomplished.find({
             habit_id: { $in: habits.map(habit => habit._id) },
-            accomplished: true,
-            date_changed: { $gte: startOfMonth }
-        }).sort({ date_changed: -1 });
+            accomplished: true
+        }).sort({ date_changed: 1 });
 
         if (accomplished.length === 0) {
-            responseHandler(res, 404, 'No accomplished dates found');
-            return;
+            return responseHandler(res, 404, 'No accomplishments found');
         }
 
         let currentStreak = 0;
+        let bestStreak = 0;
+        let tempStreak = 1;
 
-        for (let i = 0; i <= differenceInCalendarDays(currentDate, startOfMonth); i++) {
-            const streakDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - i);
-            
-            const completedOnDate = accomplished.some(accomplish => 
-                differenceInCalendarDays(new Date(accomplish.date_changed), streakDate) === 0
-            );
+        let currentStreakStart: Date | null = null;
+        let currentStreakEnd: Date | null = null;
+        let bestStreakStart: Date | null = null;
+        let bestStreakEnd: Date | null = null;
 
-            if (completedOnDate) {
-                currentStreak++;
+        const today = new Date();
+        const mostRecentDate = new Date(accomplished[accomplished.length - 1].date_changed);
+
+        if (differenceInCalendarDays(today, mostRecentDate) === 0) {
+            currentStreak = 1;
+            currentStreakStart = today;
+            currentStreakEnd = today;
+        }
+
+        for (let i = accomplished.length - 1; i > 0; i--) {
+            const currentDate = new Date(accomplished[i].date_changed);
+            const previousDate = new Date(accomplished[i - 1].date_changed);
+
+            const differenceInDays = differenceInCalendarDays(currentDate, previousDate);
+
+            if (differenceInDays === 1) {
+                tempStreak++;
+
+                if (currentStreakStart && differenceInCalendarDays(today, currentDate) < tempStreak) {
+                    currentStreak = tempStreak;
+                    currentStreakStart = previousDate;
+                    currentStreakEnd = today;
+                }
             } else {
-                break;
+                if (tempStreak > bestStreak) {
+                    bestStreak = tempStreak;
+                    bestStreakStart = new Date(accomplished[i + tempStreak - 1].date_changed);
+                    bestStreakEnd = currentDate;
+                }
+                tempStreak = 1;
             }
         }
 
-        responseHandler(res, 200, 'Streak retrieved successfully', { streak: currentStreak });
+        if (tempStreak > bestStreak) {
+            bestStreak = tempStreak;
+            bestStreakStart = new Date(accomplished[accomplished.length - tempStreak].date_changed);
+            bestStreakEnd = new Date(accomplished[accomplished.length - 1].date_changed);
+        }
+
+        if (!currentStreakStart || !currentStreakEnd) {
+            currentStreak = 0;
+            currentStreakStart = null;
+            currentStreakEnd = null;
+        }
+
+        if (bestStreak === 0) {
+            bestStreak = currentStreak;
+            bestStreakStart = currentStreakStart;
+            bestStreakEnd = currentStreakEnd;
+        }
+
+        const response = {
+            currentStreak,
+            currentStreakInterval: currentStreakStart && currentStreakEnd
+                ? `${format(currentStreakStart, 'MMM dd')} - ${format(currentStreakEnd, 'MMM dd')}`
+                : null,
+            bestStreak,
+            bestStreakInterval: bestStreakStart && bestStreakEnd
+                ? `${format(bestStreakStart, 'MMM dd')} - ${format(bestStreakEnd, 'MMM dd')}`
+                : currentStreakStart && currentStreakEnd ? `${format(currentStreakStart, 'MMM dd')} - ${format(currentStreakEnd, 'MMM dd')}` : null
+        };
+
+        return responseHandler(res, 200, 'Streaks retrieved successfully', response);
     } catch (error) {
-        console.log(error);
-        responseHandler(res, 500, 'An error occurred');
+        console.error("Error in getUserStreak:", error);
+        return responseHandler(res, 500, 'An error occurred');
     }
 };
 
