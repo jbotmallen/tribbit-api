@@ -85,15 +85,14 @@ const createAccomplishedStatus = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
 
-        const existingAccomplished = await getHabitAccomplishedStatus(id, new Date().toISOString());
+        const existingAccomplished = await Accomplished.findOne({ habit_id: id, date_changed: { $gte: startOfDay(new Date()) } });
 
-        if (existingAccomplished !== null) {
-            return existingAccomplished;
+        if (existingAccomplished) {
+            return existingAccomplished.accomplished;
         }
-
         const accomplished = await Accomplished.create({ habit_id: id, accomplished: false });
 
-        return accomplished ? accomplished : null;
+        return accomplished ? accomplished.accomplished : false;
     } catch (error) {
         console.log(error);
         return null;
