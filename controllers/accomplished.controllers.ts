@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { Accomplished } from '../models/accomplished.models';
 import { connectToDatabase } from '../utils/db';
-import { startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfToday } from 'date-fns';
 
 const getHabitAllAccomplishedStatuses = async (id: Types.ObjectId) => {
     try {
@@ -63,8 +63,7 @@ const createAccomplishedStatus = async (id: Types.ObjectId) => {
 const updateAccomplishedStatus = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
-
-        const accomplished = await Accomplished.findOne({ habit_id: id });
+        const accomplished = await Accomplished.findOne({ habit_id: id, created_at: {$gte:startOfToday()} });
 
         if (!accomplished) {
             await Accomplished.create({ habit_id: id, accomplished: true });
