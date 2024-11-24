@@ -6,6 +6,7 @@ import { ONE_DAY } from "../utils/constants";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { responseHandler } from "../utils/response-handlers";
+import { JwtPayload, verify } from "jsonwebtoken";
 
 const getHabitStreak = async (id: Types.ObjectId) => {
     try {
@@ -49,12 +50,21 @@ const getUserStreak = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
-        const { id } = req.params;
+        const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+
+        if (!token) {
+            responseHandler(res, 401, 'Unauthorized');
+            return;
+        }
+
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+
+        const id = decoded.id;
 
         const habits = await Habit.find({ user_id: id, deleted_at: null });
 
         if (habits.length === 0) {
-            responseHandler(res, 204, 'No habits found');
+            responseHandler(res, 404, 'No habits found');
             return;
         }
 
@@ -68,12 +78,11 @@ const getUserStreak = async (req: Request, res: Response) => {
         }).sort({ date_changed: -1 });
 
         if (accomplished.length === 0) {
-            responseHandler(res, 204, 'No accomplished dates found');
+            responseHandler(res, 404, 'No accomplished dates found');
             return;
         }
 
         let currentStreak = 0;
-        let previousDate = currentDate;
 
         for (let i = 0; i <= differenceInCalendarDays(currentDate, startOfMonth); i++) {
             const streakDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - i);
