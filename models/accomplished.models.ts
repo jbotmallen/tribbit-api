@@ -4,6 +4,7 @@ type AccomplishedDocument = Document & {
     habit_id: string;
     date_changed: Date;
     accomplished: boolean;
+    created_at: Date;
 }
 
 const accomplishedSchema = new Schema({

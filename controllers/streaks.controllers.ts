@@ -7,6 +7,7 @@ import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { responseHandler } from "../utils/response-handlers";
 import { JwtPayload, verify } from "jsonwebtoken";
+import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
 
 const getHabitStreak = async (id: Types.ObjectId) => {
     try {
@@ -70,7 +71,7 @@ const getUserStreak = async (req: Request, res: Response) => {
         }
 
         const { frequency } = req.params;
-        let start: Date | null, end: Date | null;
+        let start: Date | null = null, end: Date | null = null;
 
         switch (frequency) {
             case 'weekly':
@@ -82,10 +83,6 @@ const getUserStreak = async (req: Request, res: Response) => {
                 start = new Date();
                 start.setMonth(start.getMonth() - 1);
                 end = new Date();
-                break;
-            case 'all time':
-                start = null;
-                end = null;
                 break;
             default:
                 return responseHandler(res, 400, 'Invalid frequency');
@@ -225,10 +222,6 @@ const getUserConsistency = async (req: Request, res: Response) => {
                 end = new Date();
                 totalDays *= 4;
                 break;
-            case 'all time':
-                start = null;
-                end = null;
-                break;
             default:
                 return responseHandler(res, 400, 'Invalid frequency');
         }
@@ -268,4 +261,77 @@ const getUserConsistency = async (req: Request, res: Response) => {
     }
 };
 
-export { getHabitStreak, getUserStreak, getUserConsistency };
+const getUserAccomplishedCount = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const token = req.cookies.token;
+        if (!token) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        const id = decoded.id;
+
+        if (!id) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const { frequency } = req.params;
+        let start: Date | null = null,
+            end: Date | null = null;
+
+        const today = new Date();
+
+        switch (frequency) {
+            case 'weekly': {
+                start = getStartOfWeek(today);
+                end = getEndOfWeek(start);
+                break;
+            }
+            case 'monthly': {
+                start = getStartOfMonth(today);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+                break;
+            }
+            default:
+                return responseHandler(res, 400, 'Invalid frequency');
+        }
+
+        const habits = await Habit.find({ user_id: id, deleted_at: null });
+        if (habits.length === 0) {
+            return responseHandler(res, 404, 'No habits found');
+        }
+
+        const accomplishedQuery: { created_at?: { $gte: Date; $lte: Date } } = {};
+        if (start && end) {
+            accomplishedQuery.created_at = { $gte: start, $lte: end };
+        }
+
+        const accomplished = await Accomplished.find({
+            habit_id: { $in: habits.map((habit) => habit._id) },
+            accomplished: true,
+            ...accomplishedQuery,
+        });
+
+        const dailyAccomplishments: Record<string, number> = {};
+
+        accomplished.forEach((item) => {
+            const date = new Date(item.created_at).toISOString().split('T')[0];
+            dailyAccomplishments[date] = (dailyAccomplishments[date] || 0) + 1;
+        });
+
+        const dateRange = generateDateRange(start, end);
+        const result = dateRange.map((date) => ({
+            date,
+            count: dailyAccomplishments[date] || 0,
+        }));
+
+        return responseHandler(res, 200, 'Daily accomplishments retrieved successfully', result);
+    } catch (error) {
+        console.error('Error in getUserAccomplishedDailyCount:', error);
+        return responseHandler(res, 500, 'An error occurred');
+    }
+};
+
+export { getHabitStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount };
