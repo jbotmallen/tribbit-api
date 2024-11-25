@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished } from "../models/accomplished.models";
-import { differenceInCalendarDays, format, isToday } from "date-fns";
+import { differenceInCalendarDays, format, formatDate, isToday } from "date-fns";
 import { ONE_DAY } from "../utils/constants";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
@@ -65,7 +65,8 @@ const getUserStreak = async (req: Request, res: Response) => {
         const habits = await Habit.find({ user_id: id, deleted_at: null });
 
         if (habits.length === 0) {
-            return responseHandler(res, 404, 'No habits found');
+            console.log("No habits found")
+            return responseHandler(res, 204, 'No habits found');
         }
 
         const { frequency } = req.params;
@@ -103,7 +104,7 @@ const getUserStreak = async (req: Request, res: Response) => {
         }).sort({ date_changed: 1 });
 
         if (accomplished.length === 0) {
-            return responseHandler(res, 404, 'No accomplishments found');
+            return responseHandler(res, 204, 'No accomplishments found');
         }
 
         let currentStreak = 0;
@@ -184,4 +185,92 @@ const getUserStreak = async (req: Request, res: Response) => {
     }
 };
 
-export { getHabitStreak, getUserStreak };
+const getUserConsistency = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const token = req.cookies.token;
+        if (!token) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        const id = decoded.id;
+
+        if (!id) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const habits = await Habit.find({ user_id: id, deleted_at: null });
+
+        if (habits.length === 0) {
+            return responseHandler(res, 204, 'No habits found');
+        }
+
+        const { frequency } = req.params;
+        let start: Date | null, end: Date | null;
+
+        switch (frequency) {
+            case 'weekly':
+                start = new Date();
+                start.setDate(start.getDate() - 7);
+                end = new Date();
+                break;
+            case 'monthly':
+                start = new Date();
+                start.setMonth(start.getMonth() - 1);
+                end = new Date();
+                break;
+            case 'all time':
+                start = null;
+                end = null;
+                break;
+            default:
+                return responseHandler(res, 400, 'Invalid frequency');
+        }
+
+        const accomplishedQuery: { created_at?: { $gte: Date, $lte: Date } } = {};
+
+        if (start && end) {
+            accomplishedQuery.created_at = { $gte: start, $lte: end };
+        }
+
+        const accomplished = await Accomplished.find({
+            habit_id: { $in: habits.map(habit => habit._id) },
+            accomplished: true,
+            ...accomplishedQuery
+        }).sort({ date_changed: 1 });
+
+        if (accomplished.length === 0) {
+            return responseHandler(res, 204, 'No accomplishments found');
+        }
+
+        let consistency = 0;
+        let totalDays = habits.map(habit => habit.goal).reduce((a, b) => a + b, 0);
+
+        
+        if (totalDays === 0) {
+            return responseHandler(res, 200, 'Consistency retrieved successfully', { consistency, totalDays, percentage: 0 });
+        }
+        
+        for(let i = 0; i < accomplished.length - 1; i++) {
+            const currentDate = new Date(accomplished[i].date_changed);
+            const nextDate = new Date(accomplished[i + 1].date_changed);
+
+            const differenceInDays = differenceInCalendarDays(currentDate, nextDate);
+
+            if (differenceInDays === 1) {
+                consistency++;
+            }
+        }
+
+        const percentage = (consistency / totalDays) * 100;
+
+        return responseHandler(res, 200, 'Consistency retrieved successfully', { consistency, totalDays, percentage });
+    } catch (error) {
+        console.error("Error in getUserConsistency:", error);
+        return responseHandler(res, 500, 'An error occurred');
+    }
+};
+
+export { getHabitStreak, getUserStreak, getUserConsistency };
