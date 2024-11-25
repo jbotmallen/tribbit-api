@@ -96,7 +96,7 @@ const getUserStreak = async (req: Request, res: Response) => {
         if (start && end) {
             accomplishedQuery.created_at = { $gte: start, $lte: end };
         }
-        
+
         const accomplished = await Accomplished.find({
             habit_id: { $in: habits.map(habit => habit._id) },
             accomplished: true,
@@ -210,6 +210,9 @@ const getUserConsistency = async (req: Request, res: Response) => {
         const { frequency } = req.params;
         let start: Date | null, end: Date | null;
 
+        let consistency = 0;
+        let totalDays = habits.map(habit => habit.goal).reduce((a, b) => a + b, 0);
+
         switch (frequency) {
             case 'weekly':
                 start = new Date();
@@ -220,6 +223,7 @@ const getUserConsistency = async (req: Request, res: Response) => {
                 start = new Date();
                 start.setMonth(start.getMonth() - 1);
                 end = new Date();
+                totalDays *= 4;
                 break;
             case 'all time':
                 start = null;
@@ -245,23 +249,14 @@ const getUserConsistency = async (req: Request, res: Response) => {
             return responseHandler(res, 204, 'No accomplishments found');
         }
 
-        let consistency = 0;
-        let totalDays = habits.map(habit => habit.goal).reduce((a, b) => a + b, 0);
-
-        
-        if (totalDays === 0) {
-            return responseHandler(res, 200, 'Consistency retrieved successfully', { consistency, totalDays, percentage: 0 });
-        }
-        
-        for(let i = 0; i < accomplished.length - 1; i++) {
-            const currentDate = new Date(accomplished[i].date_changed);
-            const nextDate = new Date(accomplished[i + 1].date_changed);
-
-            const differenceInDays = differenceInCalendarDays(currentDate, nextDate);
-
-            if (differenceInDays === 1) {
+        accomplished.forEach(acc => {
+            if (acc.accomplished) {
                 consistency++;
             }
+        });
+
+        if (totalDays === 0) {
+            return responseHandler(res, 200, 'Consistency retrieved successfully', { consistency, totalDays, percentage: 0 });
         }
 
         const percentage = (consistency / totalDays) * 100;
