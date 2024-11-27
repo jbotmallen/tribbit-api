@@ -260,7 +260,6 @@ const getUserConsistency = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 };
-
 const getUserAccomplishedCount = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -278,8 +277,7 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
         }
 
         const { frequency } = req.params;
-        let start: Date | null = null,
-            end: Date | null = null;
+        let start: Date | null = null, end: Date | null = null;
 
         const today = new Date();
 
@@ -314,17 +312,27 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
             ...accomplishedQuery,
         });
 
-        const dailyAccomplishments: Record<string, number> = {};
+        const dailyAccomplishments: Record<string, { count: number; habits: string[] }> = {};
 
         accomplished.forEach((item) => {
             const date = new Date(item.created_at).toISOString().split('T')[0];
-            dailyAccomplishments[date] = (dailyAccomplishments[date] || 0) + 1;
+            if (!dailyAccomplishments[date]) {
+                dailyAccomplishments[date] = { count: 0, habits: [] };
+            }
+
+            dailyAccomplishments[date].count += 1;
+
+            const habit = habits.find((habit) => habit._id.toString() === item.habit_id.toString());
+            if (habit && !dailyAccomplishments[date].habits.includes(habit.name)) {
+                dailyAccomplishments[date].habits.push(habit.name);
+            }
         });
 
         const dateRange = generateDateRange(start, end);
         const result = dateRange.map((date) => ({
             date,
-            count: dailyAccomplishments[date] || 0,
+            count: dailyAccomplishments[date]?.count || 0,
+            habits: dailyAccomplishments[date]?.habits || [],
         }));
 
         return responseHandler(res, 200, 'Daily accomplishments retrieved successfully', result);
