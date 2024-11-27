@@ -8,6 +8,22 @@ import { logoutUser } from './auth.controllers';
 
 dotenv.config();
 
+const getUserById = async (id: string) => {
+    try {
+        await connectToDatabase();
+
+        const existingUser = await User.findOne({ _id: id });
+
+        if (!existingUser) {
+            return null;
+        }
+
+        return existingUser;
+    } catch (error) {
+        return null;
+    }
+};
+
 const getUserByEmailOrUsername = async (identifier: string) => {
     try {
         await connectToDatabase();
@@ -132,4 +148,4 @@ const softDeleteUser = async (req: Request, res: Response) => {
     }
 };
 
-export { getUserByEmailOrUsername, getProfileInformation, updateProfileInformation, softDeleteUser };
+export { getUserById, getUserByEmailOrUsername, getProfileInformation, updateProfileInformation, softDeleteUser };

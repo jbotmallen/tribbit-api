@@ -7,7 +7,7 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-        responseHandler(res, 401, 'Unauthorized');
+        responseHandler(res, 401, 'Unauthorized Access');
         return;
     }
 
