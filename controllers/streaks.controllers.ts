@@ -1,19 +1,60 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished } from "../models/accomplished.models";
-import { differenceInCalendarDays, format, formatDate, isToday } from "date-fns";
+import { differenceInCalendarDays, format, isToday } from "date-fns";
 import { ONE_DAY } from "../utils/constants";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
-import { responseHandler } from "../utils/response-handlers";
+import { genericError, responseHandler } from "../utils/response-handlers";
 import { JwtPayload, verify } from "jsonwebtoken";
 import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
 
-const getHabitStreak = async (id: Types.ObjectId) => {
+const getHabitBestStreak = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
+        const { id } = req.params;
+
+        if (!id) {
+            responseHandler(res, 400, 'Please provide all required fields');
+            return;
+        }
+
         const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
+
+        if (accomplished.length === 0) {
+            responseHandler(res, 400, 'No accomplished dates found', { bestStreak: 0 });
+            return;
+        }
+
+        let bestStreak = 0;
+
+        let previousDate = new Date(accomplished[0].date_changed);
+
+        for (let i = 1; i < accomplished.length; i++) {
+            const currentDate = new Date(accomplished[i].date_changed);
+            const differenceInDays = (previousDate.getTime() - currentDate.getTime()) / ONE_DAY;
+
+            if (Math.floor(differenceInDays) === 1) {
+                bestStreak++;
+            } else {
+                bestStreak = 0;
+            }
+            previousDate = currentDate;
+        }
+
+        responseHandler(res, 200, 'Best streak retrieved successfully', { bestStreak });
+    } catch (error) {
+        console.error(error);
+        genericError(res, error);
+    }
+};
+
+const getHabitCurrentStreak = async (id: Types.ObjectId) => {
+    try {
+        await connectToDatabase();
+
+        const accomplished = await Accomplished.find({ habit_id: id }).sort({ date_changed: -1 });
 
         if (accomplished.length === 0) {
             return 0;
@@ -32,7 +73,7 @@ const getHabitStreak = async (id: Types.ObjectId) => {
             const currentDate = new Date(accomplished[i].date_changed);
             const differenceInDays = (previousDate.getTime() - currentDate.getTime()) / ONE_DAY;
 
-            if (differenceInDays === 1) {
+            if (Math.floor(differenceInDays) === 1) {
                 currentStreak++;
             } else {
                 break;
@@ -260,6 +301,7 @@ const getUserConsistency = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 };
+
 const getUserAccomplishedCount = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -342,4 +384,4 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
     }
 };
 
-export { getHabitStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount };
+export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount };
