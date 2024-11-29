@@ -8,9 +8,8 @@ import { sign } from 'jsonwebtoken';
 import { ONE_DAY } from '../utils/constants';
 import { getUserByEmailOrUsername, getUserById } from './user.controllers';
 import { Token } from '../models/token.models';
-import crypto from 'crypto';
 import { sendMail } from '../utils/mail';
-import { resetPasswordEmailTemplate } from '../utils/templates';
+import { resetPasswordEmailTemplate, verifyEmailTemplate } from '../utils/templates';
 import { deleteUserTokens, generateResetPasswordToken } from './token.controllers';
 
 dotenv.config();
@@ -39,7 +38,19 @@ const registerUser = async (req: Request, res: Response) => {
 
         const user = await User.create({ email, password: hashedPassword, username });
 
-        responseHandler(res, 201, 'User created successfully', {
+        const verification = await generateResetPasswordToken(user._id);
+
+        if (!verification) {
+            Promise.all([user.deleteOne(), deleteUserTokens(user._id)]);
+
+            responseHandler(res, 500, 'Token generation failed. Registration failed.');
+            return;
+        }
+
+        const link = `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173/'}verify-email/?token=${verification}&email=${user.email}`;
+        await sendMail(user.email, 'Email Verification', verifyEmailTemplate(link));
+
+        responseHandler(res, 201, 'Check email for verification.', {
             id: user._id, email: user.email, username: user.username
         });
     } catch (error) {
@@ -72,6 +83,11 @@ const loginUser = async (req: Request, res: Response) => {
             return;
         }
 
+        if (!existingUser.verified) {
+            responseHandler(res, 403, 'Email not verified. Check your email.');
+            return;
+        }
+
         const token = sign({
             id: existingUser._id, email: existingUser.email, username: existingUser.username
         },
@@ -99,6 +115,53 @@ const loginUser = async (req: Request, res: Response) => {
     }
 };
 
+const verifyEmail = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { token, email } = req.body;
+
+        if (!token || !email) {
+            responseHandler(res, 400, 'Token and email are required');
+            return;
+        }
+
+        const user = await getUserByEmailOrUsername(email);
+
+        if (!user) {
+            responseHandler(res, 404, 'User not found');
+            return;
+        }
+
+        const existingToken = await Token.findOne({ user_id: user._id });
+
+        if (!existingToken) {
+            responseHandler(res, 404, 'Token not found');
+            return;
+        }
+
+        if (new Date() > existingToken.valid) {
+            responseHandler(res, 498, 'Token has expired');
+            return;
+        }
+
+        const isValid = await compare(token, existingToken.token);
+
+        if (!isValid) {
+            responseHandler(res, 498, 'Invalid token');
+            return;
+        }
+
+        user.verified = true;
+        await user.save();
+        await existingToken.deleteOne();
+
+        responseHandler(res, 200, 'Email verified successfully');
+    } catch (error) {
+        genericError(res, error);
+    }
+};
+
 const forgotPassword = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -118,10 +181,16 @@ const forgotPassword = async (req: Request, res: Response) => {
         }
 
         await deleteUserTokens(user._id);
+
         const resetToken = await generateResetPasswordToken(user._id);
-        
+
+        if (!resetToken) {
+            responseHandler(res, 500, 'Token generation failed');
+            return;
+        }
+
         const link = `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173/'}reset-password/?token=${resetToken}&email=${user.email}`;
-        const sendEmail = sendMail(user.email, 'Password Reset', resetPasswordEmailTemplate(link));
+        const sendEmail = await sendMail(user.email, 'Password Reset', resetPasswordEmailTemplate(link));
 
         if (!sendEmail) {
             responseHandler(res, 550, 'Email was not sent.')
@@ -196,4 +265,4 @@ const logoutUser = async (req: Request, res: Response) => {
     }
 };
 
-export { registerUser, loginUser, logoutUser, forgotPassword, resetPassword };
+export { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, verifyEmail };

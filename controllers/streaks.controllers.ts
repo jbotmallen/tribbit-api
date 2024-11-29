@@ -141,7 +141,6 @@ const getUserStreak = async (req: Request, res: Response) => {
         const habits = await Habit.find({ user_id: id, deleted_at: null });
 
         if (habits.length === 0) {
-            console.log("No habits found")
             return responseHandler(res, 204, 'No habits found');
         }
 

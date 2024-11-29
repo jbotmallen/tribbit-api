@@ -2,8 +2,20 @@ import { Types } from "mongoose";
 import { Token } from "../models/token.models";
 import { connectToDatabase } from "../utils/db";
 import crypto from "crypto";
-import { genericError, responseHandler } from "../utils/response-handlers";
 import { hash } from "bcryptjs";
+
+const checkToken = async (token: string) => {
+    try {
+        await connectToDatabase();
+
+        const tokenDoc = await Token.findOne({ token });
+
+        return tokenDoc;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
+};
 
 const getTokenByUserId = async (userId: Types.ObjectId) => {
     try {
@@ -39,7 +51,7 @@ const generateResetPasswordToken = async (userId: Types.ObjectId) => {
         const hashedToken = await hash(token, Number(process.env.SALT_ROUNDS));
 
         await new Token({
-            user: userId,
+            user_id: userId,
             token: hashedToken,
         }).save();
 
@@ -50,4 +62,4 @@ const generateResetPasswordToken = async (userId: Types.ObjectId) => {
     }
 }
 
-export { deleteUserTokens, generateResetPasswordToken, getTokenByUserId };
+export { deleteUserTokens, generateResetPasswordToken, getTokenByUserId, checkToken };
