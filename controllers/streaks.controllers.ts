@@ -50,11 +50,10 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
         }
 
         let bestStreak = 0;
-        let tempStreak = 0;
+        let tempStreak = 1;
         let previousDate = new Date(accomplished[0].date_changed);
 
         if(isToday(previousDate)) {
-            bestStreak++;
             tempStreak++;
         }
 
@@ -77,7 +76,7 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
         if(tempStreak > bestStreak) {
             bestStreak = tempStreak;
         }
-
+        
         return bestStreak;
     } catch (error) {
         console.error(error);
