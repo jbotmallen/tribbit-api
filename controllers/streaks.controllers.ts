@@ -2,51 +2,86 @@ import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished } from "../models/accomplished.models";
 import { differenceInCalendarDays, format, isToday } from "date-fns";
-import { ONE_DAY } from "../utils/constants";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { JwtPayload, verify } from "jsonwebtoken";
 import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
 
-const getHabitBestStreak = async (req: Request, res: Response) => {
+const getHabitStreaks = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
         const { id } = req.params;
 
         if (!id) {
-            responseHandler(res, 400, 'Please provide all required fields');
-            return;
+            return responseHandler(res, 400, 'Please provide all required fields');
+        }
+
+        const habit = await Habit.findById(id);
+
+        if (!habit) {
+            return responseHandler(res, 204, 'Habit not found');
+        }
+
+        const [bestStreak, currentStreak] = await Promise.all([
+            getHabitBestStreak(habit._id),
+            getHabitCurrentStreak(habit._id)
+        ]);
+
+        return responseHandler(res, 200, 'Streaks retrieved successfully', { bestStreak, currentStreak });
+    } catch (error) {
+        genericError(res, error);
+    }
+};
+
+const getHabitBestStreak = async (id: Types.ObjectId) => {
+    try {
+        await connectToDatabase();
+
+        if (!id) {
+            return 0;
         }
 
         const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
 
         if (accomplished.length === 0) {
-            responseHandler(res, 400, 'No accomplished dates found', { bestStreak: 0 });
-            return;
+            return 0;
         }
 
         let bestStreak = 0;
-
+        let tempStreak = 0;
         let previousDate = new Date(accomplished[0].date_changed);
+
+        if(isToday(previousDate)) {
+            bestStreak++;
+            tempStreak++;
+        }
 
         for (let i = 1; i < accomplished.length; i++) {
             const currentDate = new Date(accomplished[i].date_changed);
-            const differenceInDays = (previousDate.getTime() - currentDate.getTime()) / ONE_DAY;
+            const differenceInDays = (previousDate.getDay() - currentDate.getDay());
 
-            if (Math.floor(differenceInDays) === 1) {
-                bestStreak++;
+            if (differenceInDays === 1) {
+                tempStreak++;
             } else {
-                bestStreak = 0;
+                if(tempStreak > bestStreak) {
+                    bestStreak = tempStreak;
+                }
+                tempStreak = 0;
             }
+
             previousDate = currentDate;
         }
 
-        responseHandler(res, 200, 'Best streak retrieved successfully', { bestStreak });
+        if(tempStreak > bestStreak) {
+            bestStreak = tempStreak;
+        }
+
+        return bestStreak;
     } catch (error) {
         console.error(error);
-        genericError(res, error);
+        return 0;
     }
 };
 
@@ -54,7 +89,7 @@ const getHabitCurrentStreak = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
 
-        const accomplished = await Accomplished.find({ habit_id: id }).sort({ date_changed: -1 });
+        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
 
         if (accomplished.length === 0) {
             return 0;
@@ -71,9 +106,9 @@ const getHabitCurrentStreak = async (id: Types.ObjectId) => {
 
         for (let i = 1; i < accomplished.length; i++) {
             const currentDate = new Date(accomplished[i].date_changed);
-            const differenceInDays = (previousDate.getTime() - currentDate.getTime()) / ONE_DAY;
+            const differenceInDays = (previousDate.getDay() - currentDate.getDay());
 
-            if (Math.floor(differenceInDays) === 1) {
+            if (differenceInDays === 1) {
                 currentStreak++;
             } else {
                 break;
@@ -384,4 +419,4 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
     }
 };
 
-export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount };
+export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks };

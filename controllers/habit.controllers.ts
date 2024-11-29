@@ -9,7 +9,7 @@ import { JwtPayload, verify } from 'jsonwebtoken';
 import { createAccomplishedStatus, getHabitAllAccomplishedStatuses, updateAccomplishedStatus } from './accomplished.controllers';
 import { Accomplished } from '../models/accomplished.models';
 import { getUserByEmailOrUsername } from './user.controllers';
-import { getHabitCurrentStreak } from './streaks.controllers';
+import { getHabitBestStreak, getHabitCurrentStreak } from './streaks.controllers';
 
 dotenv.config();
 
@@ -76,8 +76,7 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const results = await Promise.all(habits.map(async habit => {
             const accomplishedStatus = await createAccomplishedStatus(habit._id);
-            const streak = await getHabitCurrentStreak(habit._id);
-            return { habit, accomplished: accomplishedStatus, streak };
+            return { habit, accomplished: accomplishedStatus, };
         }));
 
         responseHandler(res, 200, 'Habits retrieved successfully', results);
