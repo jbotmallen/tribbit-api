@@ -11,6 +11,7 @@ import { Token } from '../models/token.models';
 import crypto from 'crypto';
 import { sendMail } from '../utils/mail';
 import { resetPasswordEmailTemplate } from '../utils/templates';
+import { deleteUserTokens, generateResetPasswordToken } from './token.controllers';
 
 dotenv.config();
 
@@ -116,16 +117,9 @@ const forgotPassword = async (req: Request, res: Response) => {
             return;
         }
 
-        await Token.deleteMany({ user_id: user._id })
-
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const hashedToken = await hash(resetToken, Number(process.env.SALT_ROUNDS));
-
-        await new Token({
-            user_id: user._id,
-            token: hashedToken,
-        }).save();
-
+        await deleteUserTokens(user._id);
+        const resetToken = await generateResetPasswordToken(user._id);
+        
         const link = `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173/'}reset-password/?token=${resetToken}&email=${user.email}`;
         const sendEmail = sendMail(user.email, 'Password Reset', resetPasswordEmailTemplate(link));
 
