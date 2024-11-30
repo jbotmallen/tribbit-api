@@ -5,7 +5,7 @@ export const isToday = (date: Date) => {
 
 export const getStartOfWeek = (date: Date): Date => {
     const start = new Date(date);
-    start.setDate(date.getDate() - date.getDay()); // Sunday
+    start.setDate(date.getDate() - date.getDay() + 1); // Sunday
     start.setHours(0, 0, 0, 0);
     return start;
 };
