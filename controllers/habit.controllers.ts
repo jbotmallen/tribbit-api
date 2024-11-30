@@ -6,10 +6,12 @@ import dotenv from 'dotenv';
 import { sanitize } from '../utils/sanitation';
 import { habitSchema } from '../utils/schemas';
 import { JwtPayload, verify } from 'jsonwebtoken';
-import { createAccomplishedStatus, getHabitAllAccomplishedStatuses, updateAccomplishedStatus } from './accomplished.controllers';
+import { createAccomplishedStatus, getHabitAllAccomplishedStatuses, getHabitCountPerFrequency, updateAccomplishedStatus } from './accomplished.controllers';
 import { Accomplished } from '../models/accomplished.models';
 import { getUserByEmailOrUsername } from './user.controllers';
-import { getHabitBestStreak, getHabitCurrentStreak } from './streaks.controllers';
+import { getHabitCurrentStreak } from './streaks.controllers';
+import { endOfWeek, startOfWeek } from 'date-fns';
+import { Types } from 'mongoose';
 
 dotenv.config();
 
@@ -47,6 +49,26 @@ const getHabitAccomplishedDates = async (req: Request, res: Response) => {
     }
 };
 
+const getHabitGoalProgress = async (id: Types.ObjectId) => {
+    try {
+        await connectToDatabase();
+
+        const startDate = startOfWeek(new Date());
+        const endDate = endOfWeek(new Date());
+
+        const accomplished = await Accomplished.find({
+            habit_id: id,
+            date_changed: { $gte: startDate, $lte: endDate },
+            accomplished: true
+        });
+
+        return accomplished.length;
+    } catch (error) {
+        console.log(error);
+        return 0;
+    }
+};
+
 const getUserHabits = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -76,7 +98,9 @@ const getUserHabits = async (req: Request, res: Response) => {
 
         const results = await Promise.all(habits.map(async habit => {
             const accomplishedStatus = await createAccomplishedStatus(habit._id);
-            return { habit, accomplished: accomplishedStatus, };
+            const goalProgress = (await getHabitGoalProgress(habit._id) / habit.goal) * 100;
+            const weeklyCount = await getHabitCountPerFrequency(habit._id, 'weekly');
+            return { habit, accomplished: accomplishedStatus, goalProgress, weeklyCount };
         }));
 
         responseHandler(res, 200, 'Habits retrieved successfully', results);
@@ -117,7 +141,7 @@ const createHabit = async (req: Request, res: Response) => {
             return;
         }
 
-        const habit = await Habit.create({ name, goal,  color, user_id: decoded.id,});
+        const habit = await Habit.create({ name, goal, color, user_id: decoded.id, });
         const status = await createAccomplishedStatus(habit._id);
 
         responseHandler(res, 201, 'Habit created successfully', { habit, status });
