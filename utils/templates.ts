@@ -10,3 +10,9 @@ export const verifyEmailTemplate = (verificationUrl: string): string => `
   <p>Click the link below to verify your email:</p>
   <a href="${verificationUrl}">Verify Email</a>
 `;
+
+export const otpEmailTemplate = (otp: string): string => `
+  <h1>Your OTP</h1>
+  <p>Your OTP is: ${otp}</p>
+  <p>This OTP is valid for 5 minutes.</p>
+`;

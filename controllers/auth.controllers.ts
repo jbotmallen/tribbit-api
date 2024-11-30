@@ -9,8 +9,9 @@ import { ONE_DAY } from '../utils/constants';
 import { getUserByEmailOrUsername, getUserById } from './user.controllers';
 import { Token } from '../models/token.models';
 import { sendMail } from '../utils/mail';
-import { resetPasswordEmailTemplate, verifyEmailTemplate } from '../utils/templates';
+import { otpEmailTemplate, resetPasswordEmailTemplate, verifyEmailTemplate } from '../utils/templates';
 import { deleteUserTokens, generateResetPasswordToken } from './token.controllers';
+import { generateOtp, getOtpByEmail, saveOtp } from './otp.controllers';
 
 dotenv.config();
 
@@ -76,9 +77,16 @@ const loginUser = async (req: Request, res: Response) => {
             return;
         }
 
+        if(existingUser.loginAttempts > 5) {
+            responseHandler(res, 403, 'Account locked. Please reset your password.');
+            return;
+        }
+
         const isMatch = await compare(password, existingUser.password);
 
-        if (!isMatch) {
+        if (!isMatch && existingUser.loginAttempts <= 5) {
+            existingUser.loginAttempts += 1;
+            await existingUser.save();
             responseHandler(res, 400, 'Invalid credentials');
             return;
         }
@@ -88,8 +96,71 @@ const loginUser = async (req: Request, res: Response) => {
             return;
         }
 
+        const existingOtp = await getOtpByEmail(existingUser.email);
+
+        if (existingOtp) {
+            responseHandler(res, 200, 'OTP already sent. Check your email.', { email: existingUser.email });
+            return;
+        }
+
+        const otp = generateOtp();
+        const newOtp = await saveOtp(existingUser.email, otp);
+
+        if (!otp || !newOtp) {
+            responseHandler(res, 500, 'OTP generation failed');
+            return;
+        }
+
+        const otpSent = await sendMail(existingUser.email, 'Login OTP', otpEmailTemplate(otp));
+
+        if (!otpSent) {
+            responseHandler(res, 500, 'OTP not sent');
+            return;
+        }
+
+        responseHandler(res, 200, 'OTP sent to email', { email: existingUser.email });
+    } catch (error) {
+        genericError(res, error);
+    }
+};
+
+const verifyOtp = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            responseHandler(res, 400, 'Email and OTP are required');
+            return;
+        }
+
+        const existingOtp = await getOtpByEmail(email);
+
+        if (!existingOtp) {
+            responseHandler(res, 404, 'OTP not found or expired');
+            return;
+        }
+
+        if (existingOtp.otp !== otp) {
+            responseHandler(res, 400, 'Invalid OTP');
+            return;
+        }
+
+        await existingOtp.deleteOne();
+
+        const user = await getUserByEmailOrUsername(email);
+
+        if (!user) {
+            responseHandler(res, 404, 'User not found');
+            return;
+        }
+
+        user.loginAttempts = 0;
+        await user.save();
+        
         const token = sign({
-            id: existingUser._id, email: existingUser.email, username: existingUser.username
+            id: user._id, email: user.email, username: user.username
         },
             process.env.JWT_SECRET!, {
             expiresIn: '1d'
@@ -102,12 +173,12 @@ const loginUser = async (req: Request, res: Response) => {
             sameSite: 'strict'
         });
 
-        responseHandler(res, 200, 'User logged in successfully', {
+        responseHandler(res, 200, 'Logged in successfully', {
             token,
             user: {
-                id: existingUser._id,
-                username: existingUser.username,
-                email: existingUser.email
+                id: user._id,
+                username: user.username,
+                email: user.email
             }
         });
     } catch (error) {
@@ -136,12 +207,7 @@ const verifyEmail = async (req: Request, res: Response) => {
         const existingToken = await Token.findOne({ user_id: user._id });
 
         if (!existingToken) {
-            responseHandler(res, 404, 'Token not found');
-            return;
-        }
-
-        if (new Date() > existingToken.valid) {
-            responseHandler(res, 498, 'Token has expired');
+            responseHandler(res, 404, 'Token does not exist!');
             return;
         }
 
@@ -230,11 +296,6 @@ const resetPassword = async (req: Request, res: Response) => {
             return;
         }
 
-        if (new Date() > existingToken.valid) {
-            responseHandler(res, 498, 'Token has expired');
-            return;
-        }
-
         const isValid = await compare(token, existingToken.token);
 
         if (!isValid) {
@@ -265,4 +326,4 @@ const logoutUser = async (req: Request, res: Response) => {
     }
 };
 
-export { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, verifyEmail };
+export { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, verifyEmail, verifyOtp };
