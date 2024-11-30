@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
-import { Accomplished } from "../models/accomplished.models";
-import { differenceInCalendarDays, format, isToday } from "date-fns";
+import { Accomplished, AccomplishedDocument } from "../models/accomplished.models";
+import { format, isToday } from "date-fns";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { genericError, responseHandler } from "../utils/response-handlers";
@@ -53,10 +53,6 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
         let tempStreak = 1;
         let previousDate = new Date(accomplished[0].date_changed);
 
-        if(isToday(previousDate)) {
-            tempStreak++;
-        }
-
         for (let i = 1; i < accomplished.length; i++) {
             const currentDate = new Date(accomplished[i].date_changed);
             const differenceInDays = (previousDate.getDay() - currentDate.getDay());
@@ -64,7 +60,7 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
             if (differenceInDays === 1) {
                 tempStreak++;
             } else {
-                if(tempStreak > bestStreak) {
+                if (tempStreak > bestStreak) {
                     bestStreak = tempStreak;
                 }
                 tempStreak = 0;
@@ -73,10 +69,10 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
             previousDate = currentDate;
         }
 
-        if(tempStreak > bestStreak) {
+        if (tempStreak > bestStreak) {
             bestStreak = tempStreak;
         }
-        
+
         return bestStreak;
     } catch (error) {
         console.error(error);
@@ -121,6 +117,83 @@ const getHabitCurrentStreak = async (id: Types.ObjectId) => {
         return 0;
     }
 };
+
+const getUserBestStreak = (accomplished: AccomplishedDocument[]) => {
+    try {
+        if (!accomplished || accomplished.length === 0) {
+            return { bestStreak: 0, startDate: null, endDate: null };
+        }
+
+        let bestStreak = 0;
+        let tempStreak = 1;
+        let previousDate = new Date(accomplished[0].date_changed);
+        let startDate: Date | null = previousDate;
+        let endDate: Date | null = previousDate;
+
+        for (let i = 1; i < accomplished.length; i++) {
+            const currentDate = new Date(accomplished[i].date_changed);
+            const differenceInDays = (previousDate.getDay() - currentDate.getDay());
+
+            if (differenceInDays === 1) {
+                tempStreak++;
+            } else {
+                if (tempStreak > bestStreak) {
+                    bestStreak = tempStreak;
+                    startDate = new Date(accomplished[i - tempStreak + 1].date_changed);
+                    endDate = new Date(accomplished[i - 1].date_changed);
+                }
+                tempStreak = 0;
+            }
+
+            previousDate = currentDate;
+        }
+
+        if (tempStreak > bestStreak) {
+            bestStreak = tempStreak;
+            startDate = new Date(accomplished[accomplished.length - tempStreak].date_changed);
+            endDate = new Date(accomplished[accomplished.length - 1].date_changed);
+        }
+
+        return { bestStreak, startDate, endDate };
+    } catch (error) {
+        console.error("Error in getUserBestStreak:", error);
+        return { bestStreak: 0, startDate: null, endDate: null };
+    }
+};
+
+const getUserCurrentStreak = (accomplished: AccomplishedDocument[]) => {
+    try {
+        let currentStreak = 0;
+        let currentStreakStart: Date | null = new Date(accomplished[0].date_changed);
+        let currentStreakEnd: Date | null = new Date(accomplished[0].date_changed);
+
+        if (isToday(currentStreakStart)) {
+            currentStreak++;
+        } else {
+            return { currentStreak, currentStreakStart, currentStreakEnd };
+        }
+
+        for (let i = 1; i < accomplished.length; i++) {
+            let previousDate = new Date(accomplished[i - 1].date_changed);
+            const currentDate = new Date(accomplished[i].date_changed);
+            const differenceInDays = (previousDate.getDay() - currentDate.getDay());
+
+            if (differenceInDays === 1) {
+                currentStreak++;
+            } else {
+                break;
+            }
+
+            currentStreakEnd = currentDate;
+            previousDate = currentDate;
+        }
+
+        return { currentStreak, currentStreakStart, currentStreakEnd };
+    } catch (error) {
+        console.error("Error in getUserCurrentStreak:", error);
+        return { currentStreak: 0, currentStreakStart: null, currentStreakEnd: null };
+    }
+}
 
 const getUserStreak = async (req: Request, res: Response) => {
     try {
@@ -168,75 +241,48 @@ const getUserStreak = async (req: Request, res: Response) => {
             accomplishedQuery.created_at = { $gte: start, $lte: end };
         }
 
-        const accomplished = await Accomplished.find({
-            habit_id: { $in: habits.map(habit => habit._id) },
-            accomplished: true,
-            ...accomplishedQuery
-        }).sort({ date_changed: 1 });
+        const accomplished = await Accomplished.aggregate([
+            {
+                $match: {
+                    habit_id: { $in: habits.map(habit => habit._id) },
+                    accomplished: true,
+                    ...(start && end ? { created_at: { $gte: start, $lte: end } } : {})
+                }
+            },
+            {
+                $addFields: {
+                    dateOnly: {
+                        $dateToString: { format: "%Y-%m-%d", date: "$created_at" }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: { habit_id: "$habit_id", dateOnly: "$dateOnly" },
+                    firstAccomplished: { $first: "$$ROOT" }
+                }
+            },
+            {
+                $replaceRoot: { newRoot: "$firstAccomplished" }
+            },
+            {
+                $sort: { "dateOnly": -1 }
+            }
+        ]);
 
         if (accomplished.length === 0) {
             return responseHandler(res, 204, 'No accomplishments found');
         }
 
-        let currentStreak = 0;
-        let bestStreak = 0;
-        let tempStreak = 1;
+        const filteredAccomplished = Array.from(
+            new Map(
+                accomplished.map((item) => [item.dateOnly, item])
+            ).values()
+        );
 
-        let currentStreakStart: Date | null = null;
-        let currentStreakEnd: Date | null = null;
-        let bestStreakStart: Date | null = null;
-        let bestStreakEnd: Date | null = null;
 
-        const today = new Date();
-        const mostRecentDate = new Date(accomplished[accomplished.length - 1].date_changed);
-
-        if (differenceInCalendarDays(today, mostRecentDate) === 0) {
-            currentStreak = 1;
-            currentStreakStart = today;
-            currentStreakEnd = today;
-        }
-
-        for (let i = accomplished.length - 1; i > 0; i--) {
-            const currentDate = new Date(accomplished[i].date_changed);
-            const previousDate = new Date(accomplished[i - 1].date_changed);
-
-            const differenceInDays = differenceInCalendarDays(currentDate, previousDate);
-
-            if (differenceInDays === 1) {
-                tempStreak++;
-
-                if (currentStreakStart && differenceInCalendarDays(today, currentDate) < tempStreak) {
-                    currentStreak = tempStreak;
-                    currentStreakStart = previousDate;
-                    currentStreakEnd = today;
-                }
-            } else {
-                if (tempStreak > bestStreak) {
-                    bestStreak = tempStreak;
-                    bestStreakStart = new Date(accomplished[i + tempStreak - 1].date_changed);
-                    bestStreakEnd = currentDate;
-                }
-                tempStreak = 1;
-            }
-        }
-
-        if (tempStreak > bestStreak) {
-            bestStreak = tempStreak;
-            bestStreakStart = new Date(accomplished[accomplished.length - tempStreak].date_changed);
-            bestStreakEnd = new Date(accomplished[accomplished.length - 1].date_changed);
-        }
-
-        if (!currentStreakStart || !currentStreakEnd) {
-            currentStreak = 0;
-            currentStreakStart = null;
-            currentStreakEnd = null;
-        }
-
-        if (bestStreak === 0) {
-            bestStreak = currentStreak;
-            bestStreakStart = currentStreakStart;
-            bestStreakEnd = currentStreakEnd;
-        }
+        const { bestStreak, startDate: bestStreakStart, endDate: bestStreakEnd } = getUserBestStreak(filteredAccomplished);
+        const { currentStreak, currentStreakStart, currentStreakEnd } = getUserCurrentStreak(filteredAccomplished);
 
         const response = {
             currentStreak,
