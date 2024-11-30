@@ -15,6 +15,11 @@ const habitSchema = new Schema({
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
     deleted_at: { type: Date, default: null },
+    color: {
+        type: String,
+        enum: ["#BFFF95", "#89E2CD", "#FBEF95", "#FEBCEA", "#F2C394"],
+        default: "#BFFF95"
+    },
 });
 
 const Habit: Model<HabitDocument> = models.Habit || model("Habit", habitSchema);

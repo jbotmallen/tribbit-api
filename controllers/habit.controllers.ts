@@ -89,7 +89,7 @@ const createHabit = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
-        const { name, goal } = req.body;
+        const { name, goal, color } = req.body;
         const token = req.cookies.token;
 
         if (!token) {
@@ -117,7 +117,7 @@ const createHabit = async (req: Request, res: Response) => {
             return;
         }
 
-        const habit = await Habit.create({ name, goal, user_id: decoded.id });
+        const habit = await Habit.create({ name, goal,  color, user_id: decoded.id,});
         const status = await createAccomplishedStatus(habit._id);
 
         responseHandler(res, 201, 'Habit created successfully', { habit, status });
@@ -161,15 +161,15 @@ const updateHabit = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
-        const { id, name, goal } = req.body;
+        const { id, name, goal, color } = req.body;
 
-        if (!id || !name || !goal) {
+        if (!id || !name || !goal || !color) {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
         const updatedAt = new Date().toISOString();
 
-        const habit = await Habit.findByIdAndUpdate(id, { name, goal, updated_at: updatedAt }, { new: true });
+        const habit = await Habit.findByIdAndUpdate(id, { name, goal, color, updated_at: updatedAt }, { new: true });
 
         responseHandler(res, 200, 'Habit updated successfully', habit);
     } catch (error) {
