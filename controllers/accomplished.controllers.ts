@@ -12,6 +12,7 @@ const getHabitCountPerFrequency = async (id: Types.ObjectId, frequency: string) 
 
         const accomplished = await Accomplished.find({
             habit_id: id,
+            accomplished: true,
             date_changed: { $gte: start, $lte: end }
         });
 
