@@ -409,7 +409,7 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
                 break;
             }
             case 'monthly': {
-                start = getStartOfMonth(today);
+                start = new Date(today.getFullYear(), today.getMonth(), 2, 0, 0, 0, 0);
                 end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
                 break;
             }
