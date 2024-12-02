@@ -7,6 +7,7 @@ import { Request, Response } from "express";
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { JwtPayload, verify } from "jsonwebtoken";
 import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
+import { getHabitAllAccomplishedStatuses } from "./accomplished.controllers";
 
 const getHabitStreaks = async (req: Request, res: Response) => {
     try {
@@ -24,14 +25,26 @@ const getHabitStreaks = async (req: Request, res: Response) => {
             return responseHandler(res, 204, 'Habit not found');
         }
 
-        const [bestStreak, currentStreak] = await Promise.all([
+        const [bestStreak, currentStreak, accomplishedDatesPerHabit] = await Promise.all([
             getHabitBestStreak(habit._id),
-            getHabitCurrentStreak(habit._id)
+            getHabitCurrentStreak(habit._id),
+            getHabitAllAccomplishedStatuses(habit._id)
         ]);
 
-        return responseHandler(res, 200, 'Streaks retrieved successfully', { bestStreak, currentStreak });
-    } catch (error) {
-        genericError(res, error);
+        const accomplishedDates = accomplishedDatesPerHabit
+        .filter(item => item.accomplished)
+        .map(item => {
+            const date = new Date(item.date_changed);
+            return date.toISOString().split('T')[0];
+        });
+
+        return responseHandler(res, 200, 'Streaks retrieved successfully', {
+            bestStreak,
+            currentStreak,
+            accomplishedDatesPerHabit: accomplishedDates
+        });   
+     } catch (error) {
+            genericError(res, error);
     }
 };
 
