@@ -23,12 +23,16 @@ export const getEndOfWeek = (startOfWeek: Date): Date => {
     return end;
 };
 
-export const generateDateRange = (start: Date, end: Date): string[] => {
+export const generateDateRange = (start: Date, end: Date, frequency: string): string[] => {
     const dates: string[] = [];
     const current = new Date(start);
     while (current <= end) {
         dates.push(current.toISOString().split('T')[0]);
         current.setDate(current.getDate() + 1);
+    }
+    
+    if(frequency === 'monthly') {
+        dates.push(end.toISOString().split('T')[0]);
     }
     return dates;
 };

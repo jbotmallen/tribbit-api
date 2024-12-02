@@ -449,7 +449,7 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
             }
         });
 
-        const dateRange = generateDateRange(start, end);
+        const dateRange = generateDateRange(start, end, frequency);
         const result = dateRange.map((date) => ({
             date,
             count: dailyAccomplishments[date]?.count || 0,
