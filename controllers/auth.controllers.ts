@@ -5,7 +5,7 @@ import { genericError, responseHandler } from '../utils/response-handlers';
 import { hash, genSalt, compare } from 'bcryptjs';
 import dotenv from 'dotenv';
 import { sign } from 'jsonwebtoken';
-import { ONE_DAY } from '../utils/constants';
+import { MAX_LOGIN_ATTEMPTS, ONE_DAY } from '../utils/constants';
 import { getUserByEmailOrUsername, getUserById } from './user.controllers';
 import { Token } from '../models/token.models';
 import { sendMail } from '../utils/mail';
@@ -84,7 +84,7 @@ const loginUser = async (req: Request, res: Response) => {
 
         const isMatch = await compare(password, existingUser.password);
 
-        if (!isMatch && existingUser.loginAttempts <= 5) {
+        if (!isMatch && existingUser.loginAttempts <= MAX_LOGIN_ATTEMPTS) {
             existingUser.loginAttempts += 1;
             await existingUser.save();
             responseHandler(res, 400, 'Invalid credentials');
@@ -163,7 +163,7 @@ const verifyOtp = async (req: Request, res: Response) => {
             id: user._id, email: user.email, username: user.username
         },
             process.env.JWT_SECRET!, {
-            expiresIn: '7d'
+            expiresIn: '1d'
         });
 
         res.cookie('token', token, {
