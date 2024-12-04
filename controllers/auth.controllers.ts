@@ -149,7 +149,7 @@ const verifyOtp = async (req: Request, res: Response) => {
 
         await existingOtp.deleteOne();
 
-        const user = await getUserByEmailOrUsername(email);
+        const user = await getUserByEmailOrUsername(email as string);
 
         if (!user) {
             responseHandler(res, 404, 'User not found');
@@ -186,6 +186,44 @@ const verifyOtp = async (req: Request, res: Response) => {
     }
 };
 
+const verifyToken = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { token, email } = req.query;
+
+        if (!token || !email) {
+            responseHandler(res, 400, 'Token and email are required');
+            return;
+        }
+
+        const user = await getUserByEmailOrUsername(email as string);
+
+        if (!user) {
+            responseHandler(res, 404, 'User not found');
+            return;
+        }
+
+        const existingToken = await Token.findOne({ user_id: user._id });
+
+        if (!existingToken) {
+            responseHandler(res, 404, 'Token does not exist!');
+            return;
+        }
+
+        const isValid = await compare(token as string, existingToken.token);
+
+        if (!isValid) {
+            responseHandler(res, 498, 'Invalid token');
+            return;
+        }
+
+        responseHandler(res, 200, 'Token verified successfully');
+    } catch (error) {
+        genericError(res, error);
+    }
+}
+
 const verifyEmail = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -219,6 +257,7 @@ const verifyEmail = async (req: Request, res: Response) => {
         }
 
         user.verified = true;
+
         await user.save();
         await existingToken.deleteOne();
 
@@ -284,7 +323,7 @@ const resetPassword = async (req: Request, res: Response) => {
 
         const existingUser = await getUserByEmailOrUsername(email);
 
-        if (!existingUser) {
+        if (!existingUser || !existingUser.verified) {
             responseHandler(res, 404, "User does not exist");
             return;
         }
@@ -306,6 +345,7 @@ const resetPassword = async (req: Request, res: Response) => {
         const salt = await genSalt(Number(process.env.SALT_ROUNDS));
 
         existingUser.password = await hash(new_password, salt);
+        existingUser.loginAttempts = 0;
         Promise.all([existingUser.save(), existingToken.deleteOne()]);
 
         responseHandler(res, 200, "Password successfully reset");
@@ -326,4 +366,4 @@ const logoutUser = async (req: Request, res: Response) => {
     }
 };
 
-export { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, verifyEmail, verifyOtp };
+export { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, verifyEmail, verifyOtp, verifyToken };

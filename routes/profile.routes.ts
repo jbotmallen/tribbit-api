@@ -5,9 +5,9 @@ import { logoutUser } from "../controllers/auth.controllers";
 
 const profileRouter: IRouter = Router();
 
-profileRouter.post("/logout", auth_check, logoutUser);
-profileRouter.get("/", auth_check, getProfileInformation);
-profileRouter.put("/", auth_check, updateProfileInformation);
-profileRouter.delete("/", auth_check, softDeleteUser);
+profileRouter.post("/logout", logoutUser);
+profileRouter.get("/", getProfileInformation);
+profileRouter.put("/", updateProfileInformation);
+profileRouter.delete("/", softDeleteUser);
 
 export default profileRouter;

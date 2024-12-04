@@ -1,14 +1,14 @@
-import { forgotPassword, loginUser, registerUser, resetPassword, verifyEmail, verifyOtp } from "../controllers/auth.controllers";
+import { forgotPassword, loginUser, registerUser, resetPassword, verifyEmail, verifyOtp, verifyToken } from "../controllers/auth.controllers";
 import { IRouter, Router } from "express";
-import { auth_prevention } from "../middlewares/authentication";
 
 const userRouter: IRouter = Router();
 
-userRouter.post("/register", auth_prevention, registerUser);
-userRouter.post("/login", auth_prevention, loginUser);
-userRouter.post("/forgot-password", auth_prevention, forgotPassword);
-userRouter.post("/reset-password", auth_prevention, resetPassword);
-userRouter.post("/verify-email", auth_prevention, verifyEmail);
-userRouter.post("/verify-otp", auth_prevention, verifyOtp);
+userRouter.post("/register", registerUser);
+userRouter.post("/login", loginUser);
+userRouter.post("/forgot-password", forgotPassword);
+userRouter.post("/reset-password", resetPassword);
+userRouter.get("/verify-email", verifyToken);
+userRouter.post("/verify-email", verifyEmail);
+userRouter.post("/verify-otp", verifyOtp);
 
 export default userRouter;
