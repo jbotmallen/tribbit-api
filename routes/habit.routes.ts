@@ -4,11 +4,11 @@ import { auth_check } from "../middlewares/authentication";
 
 const habitRouter: IRouter = Router();
 
-habitRouter.get("/", auth_check, getUserHabits);
-habitRouter.get("/:id", auth_check, getHabitAccomplishedDates);
-habitRouter.post("/", auth_check, createHabit);
-habitRouter.put("/", auth_check, updateHabit);
-habitRouter.put("/acc/:id", auth_check, updateHabitAccomplishedStatus);
-habitRouter.delete("/", auth_check, deleteHabit);
+habitRouter.get("/", getUserHabits);
+habitRouter.get("/:id", getHabitAccomplishedDates);
+habitRouter.post("/", createHabit);
+habitRouter.put("/", updateHabit);
+habitRouter.put("/acc/:id", updateHabitAccomplishedStatus);
+habitRouter.delete("/", deleteHabit);
 
 export default habitRouter;

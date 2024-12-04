@@ -4,9 +4,9 @@ import { getHabitStreaks, getUserAccomplishedCount, getUserConsistency, getUserS
 
 const analyticsRouter: IRouter = Router();
 
-analyticsRouter.get("/habit-streak/:id", auth_check, getHabitStreaks);
-analyticsRouter.get("/user-streak/:frequency", auth_check, getUserStreak);
-analyticsRouter.get("/user-consistency/:frequency", auth_check, getUserConsistency);
-analyticsRouter.get("/user-habit-count/:frequency", auth_check, getUserAccomplishedCount);
+analyticsRouter.get("/habit-streak/:id", getHabitStreaks);
+analyticsRouter.get("/user-streak/:frequency", getUserStreak);
+analyticsRouter.get("/user-consistency/:frequency", getUserConsistency);
+analyticsRouter.get("/user-habit-count/:frequency", getUserAccomplishedCount);
 
 export default analyticsRouter;

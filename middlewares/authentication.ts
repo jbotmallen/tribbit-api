@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { JwtPayload, verify } from 'jsonwebtoken';
+import { JwtPayload, sign, verify } from 'jsonwebtoken';
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { isJwtError } from "../utils/error-handler";
+import { ONE_DAY } from "../utils/constants";
 
 const auth_check = (req: Request, res: Response, next: NextFunction) => {
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
@@ -17,6 +18,16 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
         if (decoded.exp! * 1000 < Date.now()) { // Multiply 1000 to convert seconds to milliseconds
             return responseHandler(res, 401, 'Session expired. Please log in again.');
         }
+
+        const { id, email, username } = decoded;
+        const newToken = sign({ id, email, username }, process.env.JWT_SECRET!, { expiresIn: '1d' });
+
+        res.cookie('token', newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: ONE_DAY,
+            sameSite: 'strict'
+        });
 
         next();
     } catch (error) {
