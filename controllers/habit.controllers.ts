@@ -33,11 +33,10 @@ const getHabitAccomplishedDates = async (req: Request, res: Response) => {
             return;
         }
 
-        const [accomplished, streak] = await Promise.all([
-            getHabitAllAccomplishedStatuses(habit._id),
-            getHabitCurrentStreak(habit._id)
-        ]);
+        const accomplished = await getHabitAllAccomplishedStatuses(habit._id);
 
+        const streak = getHabitCurrentStreak(accomplished)
+    
         if (!accomplished || accomplished.length === 0) {
             responseHandler(res, 204, 'No accomplished dates found', { habit, accomplished: [], streak });
             return;

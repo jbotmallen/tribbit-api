@@ -25,39 +25,34 @@ const getHabitStreaks = async (req: Request, res: Response) => {
             return responseHandler(res, 204, 'Habit not found');
         }
 
-        const [bestStreak, currentStreak, accomplishedDatesPerHabit] = await Promise.all([
-            getHabitBestStreak(habit._id),
-            getHabitCurrentStreak(habit._id),
+        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
+
+        const bestStreak = getHabitBestStreak(accomplished);
+        const currentStreak = getHabitCurrentStreak(accomplished);
+
+        const [accomplishedDatesPerHabit] = await Promise.all([
             getHabitAllAccomplishedStatuses(habit._id)
         ]);
 
         const accomplishedDates = accomplishedDatesPerHabit
-        .filter(item => item.accomplished)
-        .map(item => {
-            const date = new Date(item.date_changed);
-            return date.toISOString().split('T')[0];
-        });
+            .filter(item => item.accomplished)
+            .map(item => {
+                const date = new Date(item.date_changed);
+                return date.toISOString().split('T')[0];
+            });
 
         return responseHandler(res, 200, 'Streaks retrieved successfully', {
             bestStreak,
             currentStreak,
             accomplishedDatesPerHabit: accomplishedDates
-        });   
-     } catch (error) {
-            genericError(res, error);
+        });
+    } catch (error) {
+        genericError(res, error);
     }
 };
 
-const getHabitBestStreak = async (id: Types.ObjectId) => {
+const getHabitBestStreak = (accomplished: AccomplishedDocument[]) => {
     try {
-        await connectToDatabase();
-
-        if (!id) {
-            return 0;
-        }
-
-        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
-
         if (accomplished.length === 0) {
             return 0;
         }
@@ -76,7 +71,7 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
                 if (tempStreak > bestStreak) {
                     bestStreak = tempStreak;
                 }
-                tempStreak = 0;
+                tempStreak = 1;
             }
 
             previousDate = currentDate;
@@ -93,12 +88,8 @@ const getHabitBestStreak = async (id: Types.ObjectId) => {
     }
 };
 
-const getHabitCurrentStreak = async (id: Types.ObjectId) => {
+const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
     try {
-        await connectToDatabase();
-
-        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
-
         if (accomplished.length === 0) {
             return 0;
         }
@@ -476,4 +467,60 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
     }
 };
 
-export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks };
+const getHabitDays = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { week } = req.params;
+        const token = req.cookies.token;
+
+        if (!week || !token) {
+            return responseHandler(res, 400, 'Please provide all required fields');
+        }
+
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        const id = decoded.id;
+
+        if (!id) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const habits = await Habit.find({ user_id: id, deleted_at: null });
+
+        if (habits.length === 0) {
+            return responseHandler(res, 204, 'No habits found');
+        }
+
+        const [start, end] = week.split('-');
+
+        if (!start || !end) {
+            return responseHandler(res, 400, 'Invalid date range');
+        }
+
+        const accomplished = await Promise.all(habits.map(async habit => {
+            const accomplished = await Accomplished.find({
+                habit_id: habit._id,
+                accomplished: true,
+                created_at: { $gte: start, $lte: end }
+            });
+
+            return accomplished;
+        }));
+
+        if (accomplished.length === 0) {
+            return responseHandler(res, 204, 'No accomplishments found');
+        }
+
+        const results = accomplished.map((item, index) => ({
+            habit: habits[index].name,
+            day: item.map(i => format(i.created_at, 'yyyy-MM-dd'))
+        }));
+
+        return responseHandler(res, 200, 'Accomplished dates retrieved successfully', results);
+    } catch (error) {
+        console.error('Error in getHabitDays:', error);
+        return responseHandler(res, 500, 'An error occurred');
+    }
+}
+
+export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks, getHabitDays };

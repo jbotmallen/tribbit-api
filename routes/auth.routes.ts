@@ -1,4 +1,4 @@
-import { forgotPassword, loginUser, logoutUser, registerUser, resetPassword, verifyEmail, verifyOtp } from "../controllers/auth.controllers";
+import { forgotPassword, loginUser, registerUser, resetPassword, verifyEmail, verifyOtp } from "../controllers/auth.controllers";
 import { IRouter, Router } from "express";
 import { auth_prevention } from "../middlewares/authentication";
 
