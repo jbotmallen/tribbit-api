@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished, AccomplishedDocument } from "../models/accomplished.models";
-import { format, isToday } from "date-fns";
+import { endOfWeek, format, isToday, startOfWeek } from "date-fns";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { genericError, responseHandler } from "../utils/response-handlers";
@@ -226,9 +226,8 @@ const getUserStreak = async (req: Request, res: Response) => {
 
         switch (frequency) {
             case 'weekly':
-                start = new Date();
-                start.setDate(start.getDate() - 7);
-                end = new Date();
+                start = startOfWeek(new Date(), { weekStartsOn: 0 });
+                end = endOfWeek(new Date(), { weekStartsOn: 0 });
                 break;
             case 'monthly':
                 start = new Date();
@@ -284,6 +283,7 @@ const getUserStreak = async (req: Request, res: Response) => {
             ).values()
         );
 
+        filteredAccomplished.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         const { bestStreak, startDate: bestStreakStart, endDate: bestStreakEnd } = getUserBestStreak(filteredAccomplished);
         const { currentStreak, currentStreakStart, currentStreakEnd } = getUserCurrentStreak(filteredAccomplished);
