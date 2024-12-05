@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import { genericError, responseHandler } from '../utils/response-handlers';
 import { JwtPayload, verify } from 'jsonwebtoken';
 import { logoutUser } from './auth.controllers';
+import { Habit } from '../models/habit.models';
+import { Accomplished } from '../models/accomplished.models';
 
 dotenv.config();
 
@@ -118,7 +120,7 @@ const updateProfileInformation = async (req: Request, res: Response) => {
     }
 };
 
-const softDeleteUser = async (req: Request, res: Response) => {
+const deleteUser = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
@@ -130,17 +132,23 @@ const softDeleteUser = async (req: Request, res: Response) => {
         }
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
-        const existingUser = await User.findOne({ _id: decoded.id, deleted_at: null });
+
+        
+        const habits = await Habit.find({ user_id: decoded._id });
+        
+        Promise.all(habits.map(async (habit) => {
+            await Accomplished.deleteMany({ habit_id: habit._id });
+        }));
+        
+        await Habit.deleteMany({ user_id: decoded._id });
+        
+        const existingUser = await User.findOneAndDelete({ _id: decoded.id });
 
         if (!existingUser) {
             responseHandler(res, 404, "User not found!");
             return;
         }
-
-        existingUser.deleted_at = new Date();
-
-        await existingUser.save();
-
+        
         logoutUser(req, res);
         responseHandler(res, 200, "User deleted successfully");
     } catch (error) {
@@ -148,4 +156,4 @@ const softDeleteUser = async (req: Request, res: Response) => {
     }
 };
 
-export { getUserById, getUserByEmailOrUsername, getProfileInformation, updateProfileInformation, softDeleteUser };
+export { getUserById, getUserByEmailOrUsername, getProfileInformation, updateProfileInformation, deleteUser };
