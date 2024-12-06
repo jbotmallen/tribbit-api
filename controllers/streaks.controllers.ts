@@ -9,6 +9,7 @@ import { JwtPayload, verify } from "jsonwebtoken";
 import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
 import { getHabitAllAccomplishedStatuses } from "./accomplished.controllers";
 
+
 const getHabitStreaks = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -25,10 +26,10 @@ const getHabitStreaks = async (req: Request, res: Response) => {
             return responseHandler(res, 204, 'Habit not found');
         }
 
-        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true })
+        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
 
-        const bestStreak = getHabitBestStreak(accomplished);
-        const { currentStreak, currentStreakDates } = getHabitCurrentStreak(accomplished);
+        const { bestStreak, bestStreakDates } = getHabitBestStreak(accomplished);
+        const { currentStreak, currentStreakDates } = getHabitCurrentStreak(accomplished); // Destructure to match return values
 
         const [accomplishedDatesPerHabit] = await Promise.all([
             getHabitAllAccomplishedStatuses(habit._id)
@@ -43,6 +44,7 @@ const getHabitStreaks = async (req: Request, res: Response) => {
 
         return responseHandler(res, 200, 'Streaks retrieved successfully', {
             bestStreak,
+            bestStreakDates,
             currentStreak,
             currentStreakDates,
             accomplishedDatesPerHabit: accomplishedDates
@@ -51,28 +53,35 @@ const getHabitStreaks = async (req: Request, res: Response) => {
         genericError(res, error);
     }
 };
-
 const getHabitBestStreak = (accomplished: AccomplishedDocument[]) => {
     try {
         if (accomplished.length === 0) {
-            return 0;
+            return { bestStreak: 0, bestStreakDates: [] };
         }
 
         let bestStreak = 0;
         let tempStreak = 1;
+        let bestStreakDates: Date[] = [];
+        let tempStreakDates: Date[] = [new Date(accomplished[0].date_changed)];
         let previousDate = new Date(accomplished[0].date_changed);
 
         for (let i = 1; i < accomplished.length; i++) {
             const currentDate = new Date(accomplished[i].date_changed);
-            const differenceInDays = (previousDate.getDay() - currentDate.getDay());
+
+            const differenceInDays = Math.round(
+                (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
 
             if (differenceInDays === 1) {
                 tempStreak++;
+                tempStreakDates.push(currentDate);
             } else {
                 if (tempStreak > bestStreak) {
                     bestStreak = tempStreak;
+                    bestStreakDates = [...tempStreakDates];
                 }
                 tempStreak = 1;
+                tempStreakDates = [currentDate];
             }
 
             previousDate = currentDate;
@@ -80,14 +89,24 @@ const getHabitBestStreak = (accomplished: AccomplishedDocument[]) => {
 
         if (tempStreak > bestStreak) {
             bestStreak = tempStreak;
+            bestStreakDates = [...tempStreakDates];
         }
 
-        return bestStreak;
+        const bestStreakDatesFormatted = bestStreakDates.length > 0
+            ? [bestStreakDates[bestStreakDates.length - 1], bestStreakDates[0]]
+            : [];
+
+        return {
+            bestStreak,
+            bestStreakDates: bestStreakDatesFormatted,
+        };
     } catch (error) {
         console.error(error);
-        return 0;
+        return { bestStreak: 0, bestStreakDates: [] };
     }
 };
+
+
 const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
     try {
         if (accomplished.length === 0) {
@@ -389,7 +408,6 @@ const getUserConsistency = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 };
-
 const getUserAccomplishedCount = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
@@ -406,25 +424,20 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
             return responseHandler(res, 401, 'Unauthorized');
         }
 
-        const { frequency } = req.params;
-        let start: Date | null = null, end: Date | null = null;
+        const { year, month } = req.params;
+        let start: Date;
+        let end: Date;
 
-        const today = new Date();
+        const parsedYear = year ? parseInt(year, 10) : new Date().getFullYear();
+        const parsedMonth = month ? parseInt(month, 10) - 1 : new Date().getMonth();
 
-        switch (frequency) {
-            case 'weekly': {
-                start = getStartOfWeek(today);
-                end = getEndOfWeek(start);
-                break;
-            }
-            case 'monthly': {
-                start = new Date(today.getFullYear(), today.getMonth(), 2, 0, 0, 0, 0);
-                end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-                break;
-            }
-            default:
-                return responseHandler(res, 400, 'Invalid frequency');
+        if ((year && isNaN(parsedYear)) || (month && (isNaN(parsedMonth) || parsedMonth < 0 || parsedMonth > 11))) {
+            return responseHandler(res, 400, 'Invalid year or month');
         }
+
+        // Set the start and end date based on the parsed year and month
+        start = new Date(parsedYear, parsedMonth, 1, 0, 0, 0, 0); // Start of the month
+        end = new Date(parsedYear, parsedMonth + 1, 0, 23, 59, 59, 999); // End of the month
 
         const habits = await Habit.find({ user_id: id, deleted_at: null });
         if (habits.length === 0) {
@@ -458,7 +471,7 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
             }
         });
 
-        const dateRange = generateDateRange(start, end, frequency);
+        const dateRange = generateDateRange(start, end, "monthly");
         const result = dateRange.map((date) => ({
             date,
             count: dailyAccomplishments[date]?.count || 0,
@@ -471,6 +484,7 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 };
+
 
 const getHabitDays = async (req: Request, res: Response) => {
     try {
