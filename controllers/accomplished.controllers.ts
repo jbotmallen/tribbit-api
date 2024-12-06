@@ -27,13 +27,13 @@ const getHabitAllAccomplishedStatuses = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
 
-        const start = startOfMonth(new Date());
-        const end = endOfMonth(new Date());
+        // const start = startOfMonth(new Date());
+        // const end = endOfMonth(new Date());
 
         const accomplished = await Accomplished.find({
             habit_id: id,
             accomplished: true,
-            date_changed: { $gte: start, $lte: end }
+            // date_changed: { $gte: start, $lte: end }
         }).sort({ date_changed: 1 });
 
         return accomplished;

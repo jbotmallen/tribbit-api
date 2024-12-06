@@ -25,10 +25,10 @@ const getHabitStreaks = async (req: Request, res: Response) => {
             return responseHandler(res, 204, 'Habit not found');
         }
 
-        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
+        const accomplished = await Accomplished.find({ habit_id: id, accomplished: true })
 
         const bestStreak = getHabitBestStreak(accomplished);
-        const currentStreak = getHabitCurrentStreak(accomplished);
+        const { currentStreak, currentStreakDates } = getHabitCurrentStreak(accomplished);
 
         const [accomplishedDatesPerHabit] = await Promise.all([
             getHabitAllAccomplishedStatuses(habit._id)
@@ -44,6 +44,7 @@ const getHabitStreaks = async (req: Request, res: Response) => {
         return responseHandler(res, 200, 'Streaks retrieved successfully', {
             bestStreak,
             currentStreak,
+            currentStreakDates,
             accomplishedDatesPerHabit: accomplishedDates
         });
     } catch (error) {
@@ -87,20 +88,21 @@ const getHabitBestStreak = (accomplished: AccomplishedDocument[]) => {
         return 0;
     }
 };
-
 const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
     try {
         if (accomplished.length === 0) {
-            return 0;
+            return { currentStreak: 0, streakDates: [] };
         }
 
         let currentStreak = 0;
+        let currentStreakDates: Date[] = [];
         let previousDate = new Date(accomplished[0].date_changed);
 
         if (isToday(previousDate)) {
             currentStreak++;
+            currentStreakDates.push(previousDate);
         } else {
-            return 0;
+            return { currentStreak: 0, currentStreakDates: [] };
         }
 
         for (let i = 1; i < accomplished.length; i++) {
@@ -109,18 +111,21 @@ const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
 
             if (differenceInDays === 1) {
                 currentStreak++;
+                currentStreakDates.push(currentDate);
             } else {
                 break;
             }
+
             previousDate = currentDate;
         }
 
-        return currentStreak;
+        return { currentStreak, currentStreakDates };
     } catch (error) {
-        console.log(error);
-        return 0;
+        console.log("Error in getHabitCurrentStreak:", error);
+        return { currentStreak: 0, streakDates: [] };
     }
 };
+
 
 const getUserBestStreak = (accomplished: AccomplishedDocument[]) => {
     try {
@@ -522,5 +527,62 @@ const getHabitDays = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 }
+
+const getUserCurrentStreakByHabitId = (
+  accomplished: AccomplishedDocument[],
+  habitId: string
+) => {
+  try {
+    // Filter accomplished records based on the habitId
+    const habitAccomplishments = accomplished.filter(
+      (record) => record.habit_id === habitId
+    );
+
+    if (habitAccomplishments.length === 0) {
+      return {
+        currentStreak: 0,
+        currentStreakStart: null,
+        currentStreakEnd: null,
+      };
+    }
+
+    let currentStreak = 0;
+    let currentStreakStart: Date | null = new Date(habitAccomplishments[0].date_changed);
+    let currentStreakEnd: Date | null = new Date(habitAccomplishments[0].date_changed);
+
+    // Check if the first date is today
+    if (isToday(currentStreakStart)) {
+      currentStreak++;
+    } else {
+      return { currentStreak, currentStreakStart, currentStreakEnd };
+    }
+
+    // Loop through accomplishments to calculate streak
+    for (let i = 1; i < habitAccomplishments.length; i++) {
+      const previousDate = new Date(habitAccomplishments[i - 1].date_changed);
+      const currentDate = new Date(habitAccomplishments[i].date_changed);
+
+      const differenceInDays =
+        (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (differenceInDays === 1) {
+        currentStreak++;
+      } else {
+        break;
+      }
+
+      currentStreakEnd = currentDate;
+    }
+
+    return { currentStreak, currentStreakStart, currentStreakEnd };
+  } catch (error) {
+    console.error("Error in getUserCurrentStreakByHabitId:", error);
+    return {
+      currentStreak: 0,
+      currentStreakStart: null,
+      currentStreakEnd: null,
+    };
+  }
+};
 
 export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks, getHabitDays };
