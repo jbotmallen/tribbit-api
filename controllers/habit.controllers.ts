@@ -52,10 +52,17 @@ const getHabitAccomplishedDates = async (req: Request, res: Response) => {
 const getHabitGoalProgress = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
+        const phTime = convertToPhilippineTime();
 
-        const startDate = startOfWeek(new Date());
-        const endDate = endOfWeek(new Date());
+        const startDate = new Date(phTime);
+        startDate.setDate(phTime.getDate() - phTime.getDay()); // Set to the previous Sunday (or today if it's Sunday)
 
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6); // Set to the upcoming Saturday
+        console.log("start date", startDate, "end date", endDate);
+        
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
         const accomplished = await Accomplished.find({
             habit_id: id,
             date_changed: { $gte: startDate, $lte: endDate },
@@ -178,7 +185,9 @@ const updateHabitAccomplishedStatus = async (req: Request, res: Response) => {
         }
 
         const dateChangedInPHT = convertToPhilippineTime();
+
         accomplished.date_changed = dateChangedInPHT;
+        await accomplished.save();
 
 
         responseHandler(res, 200, 'Accomplished status updated successfully', accomplished);

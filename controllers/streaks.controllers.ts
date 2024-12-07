@@ -314,13 +314,13 @@ const getUserStreak = async (req: Request, res: Response) => {
 
         const response = {
             currentStreak,
-            currentStreakInterval: currentStreakStart && currentStreakEnd
-                ? `${format(currentStreakStart, 'MMM dd')} - ${format(currentStreakEnd, 'MMM dd')}`
+            currentStreakInterval: currentStreakEnd && currentStreakStart
+                ? `${format(currentStreakEnd, 'MMM dd')} - ${format(currentStreakStart, 'MMM dd')}`
                 : null,
             bestStreak,
-            bestStreakInterval: bestStreakStart && bestStreakEnd
-                ? `${format(bestStreakStart, 'MMM dd')} - ${format(bestStreakEnd, 'MMM dd')}`
-                : currentStreakStart && currentStreakEnd ? `${format(currentStreakStart, 'MMM dd')} - ${format(currentStreakEnd, 'MMM dd')}` : null
+            bestStreakInterval: bestStreakEnd && bestStreakStart
+                ? `${format(bestStreakEnd, 'MMM dd')} - ${format(bestStreakStart, 'MMM dd')}`
+                : currentStreakStart && currentStreakStart ? `${format(currentStreakStart, 'MMM dd')} - ${format(currentStreakStart, 'MMM dd')}` : null
         };
 
         return responseHandler(res, 200, 'Streaks retrieved successfully', response);
@@ -434,11 +434,14 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
         if ((year && isNaN(parsedYear)) || (month && (isNaN(parsedMonth) || parsedMonth < 0 || parsedMonth > 11))) {
             return responseHandler(res, 400, 'Invalid year or month');
         }
-
-        // Set the start and end date based on the parsed year and month
-        start = new Date(parsedYear, parsedMonth, 1, 0, 0, 0, 0); // Start of the month
-        end = new Date(parsedYear, parsedMonth + 1, 0, 23, 59, 59, 999); // End of the month
-
+        const timezoneOffset = new Date().getTimezoneOffset() * 60000; // in milliseconds
+        start = new Date(parsedYear, parsedMonth, 1, 0, 0, 0, 0);
+        start = new Date(start.getTime() - timezoneOffset); // Adjust to local time
+        
+        end = new Date(parsedYear, parsedMonth + 1, 0, 23, 59, 59, 999);
+        end = new Date(end.getTime() - timezoneOffset); // Adjust to local time
+        
+        
         const habits = await Habit.find({ user_id: id, deleted_at: null });
         if (habits.length === 0) {
             return responseHandler(res, 404, 'No habits found');
