@@ -105,8 +105,6 @@ const getHabitBestStreak = (accomplished: AccomplishedDocument[]) => {
         return { bestStreak: 0, bestStreakDates: [] };
     }
 };
-
-
 const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
     try {
         if (accomplished.length === 0) {
@@ -119,7 +117,7 @@ const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
 
         if (isToday(previousDate)) {
             currentStreak++;
-            currentStreakDates.push(previousDate);
+            currentStreakDates = [previousDate, previousDate]; // Store both min and max date as the same initially
         } else {
             return { currentStreak: 0, currentStreakDates: [] };
         }
@@ -130,7 +128,9 @@ const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
 
             if (differenceInDays === 1) {
                 currentStreak++;
-                currentStreakDates.push(currentDate);
+                // Update streak dates
+                currentStreakDates[0] = currentStreakDates[0] ? (currentDate < currentStreakDates[0] ? currentDate : currentStreakDates[0]) : currentDate; // Min date
+                currentStreakDates[1] = currentStreakDates[1] ? (currentDate > currentStreakDates[1] ? currentDate : currentStreakDates[1]) : currentDate; // Max date
             } else {
                 break;
             }
