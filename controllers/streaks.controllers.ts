@@ -484,6 +484,77 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 };
+const getUserAccomplishedWeeklyCount = async (req: Request, res: Response) => {
+    try {
+        await connectToDatabase();
+
+        const { week } = req.params;
+        const token = req.cookies.token;
+
+        if (!week || !token) {
+            return responseHandler(res, 400, 'Please provide all required fields');
+        }
+
+        const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        const id = decoded.id;
+
+        if (!id) {
+            return responseHandler(res, 401, 'Unauthorized');
+        }
+
+        const [start, end] = week.split('_');
+        console.log("start: ", start, "end: ", end)
+        if (!start || !end) {
+            return responseHandler(res, 400, 'Invalid week range');
+        }
+
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            return responseHandler(res, 400, 'Invalid date format');
+        }
+
+        const habits = await Habit.find({ user_id: id, deleted_at: null });
+        if (habits.length === 0) {
+            return responseHandler(res, 404, 'No habits found');
+        }
+
+        const accomplished = await Accomplished.find({
+            habit_id: { $in: habits.map((habit) => habit._id) },
+            accomplished: true,
+            created_at: { $gte: startDate, $lte: endDate },
+        });
+
+        const weeklyAccomplishments: Record<string, { count: number; habits: string[] }> = {};
+
+        accomplished.forEach((item) => {
+            const date = new Date(item.created_at).toISOString().split('T')[0];
+            if (!weeklyAccomplishments[date]) {
+                weeklyAccomplishments[date] = { count: 0, habits: [] };
+            }
+
+            weeklyAccomplishments[date].count += 1;
+
+            const habit = habits.find((habit) => habit._id.toString() === item.habit_id.toString());
+            if (habit && !weeklyAccomplishments[date].habits.includes(habit.name)) {
+                weeklyAccomplishments[date].habits.push(habit.name);
+            }
+        });
+
+        const dateRange = generateDateRange(startDate, endDate, "weekly");
+        const result = dateRange.map((date) => ({
+            date,
+            count: weeklyAccomplishments[date]?.count || 0,
+            habits: weeklyAccomplishments[date]?.habits || [],
+        }));
+
+        return responseHandler(res, 200, 'Weekly accomplishments retrieved successfully', result);
+    } catch (error) {
+        console.error('Error in getUserAccomplishedWeeklyCount:', error);
+        return responseHandler(res, 500, 'An error occurred');
+    }
+};
 
 
 const getHabitDays = async (req: Request, res: Response) => {
@@ -547,7 +618,6 @@ const getUserCurrentStreakByHabitId = (
   habitId: string
 ) => {
   try {
-    // Filter accomplished records based on the habitId
     const habitAccomplishments = accomplished.filter(
       (record) => record.habit_id === habitId
     );
@@ -564,14 +634,12 @@ const getUserCurrentStreakByHabitId = (
     let currentStreakStart: Date | null = new Date(habitAccomplishments[0].date_changed);
     let currentStreakEnd: Date | null = new Date(habitAccomplishments[0].date_changed);
 
-    // Check if the first date is today
     if (isToday(currentStreakStart)) {
       currentStreak++;
     } else {
       return { currentStreak, currentStreakStart, currentStreakEnd };
     }
 
-    // Loop through accomplishments to calculate streak
     for (let i = 1; i < habitAccomplishments.length; i++) {
       const previousDate = new Date(habitAccomplishments[i - 1].date_changed);
       const currentDate = new Date(habitAccomplishments[i].date_changed);
@@ -599,4 +667,4 @@ const getUserCurrentStreakByHabitId = (
   }
 };
 
-export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks, getHabitDays };
+export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks, getHabitDays, getUserCurrentStreakByHabitId, getUserAccomplishedWeeklyCount}
