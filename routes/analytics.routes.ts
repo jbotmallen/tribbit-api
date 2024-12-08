@@ -1,5 +1,4 @@
 import { IRouter, Router } from "express";
-import { auth_check } from "../middlewares/authentication";
 import { getHabitDays, getHabitStreaks, getUserAccomplishedCount, getUserConsistency, getUserStreak, getUserAccomplishedWeeklyCount } from "../controllers/streaks.controllers";
 
 const analyticsRouter: IRouter = Router();

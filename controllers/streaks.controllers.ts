@@ -140,7 +140,7 @@ const getHabitCurrentStreak = (accomplished: AccomplishedDocument[]) => {
 
         return { currentStreak, currentStreakDates };
     } catch (error) {
-        console.log("Error in getHabitCurrentStreak:", error);
+        console.error("Error in getHabitCurrentStreak:", error);
         return { currentStreak: 0, streakDates: [] };
     }
 };
