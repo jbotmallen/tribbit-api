@@ -12,6 +12,7 @@ import { getUserByEmailOrUsername } from './user.controllers';
 import { getHabitCurrentStreak } from './streaks.controllers';
 import { endOfWeek, startOfWeek } from 'date-fns';
 import { Types } from 'mongoose';
+import { convertToPhilippineTime } from '../utils/timezone';
 
 dotenv.config();
 
@@ -51,10 +52,17 @@ const getHabitAccomplishedDates = async (req: Request, res: Response) => {
 const getHabitGoalProgress = async (id: Types.ObjectId) => {
     try {
         await connectToDatabase();
+        const phTime = convertToPhilippineTime();
 
-        const startDate = startOfWeek(new Date());
-        const endDate = endOfWeek(new Date());
+        const startDate = new Date(phTime);
+        startDate.setDate(phTime.getDate() - phTime.getDay()); // Set to the previous Sunday (or today if it's Sunday)
 
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6); // Set to the upcoming Saturday
+        console.log("start date", startDate, "end date", endDate);
+        
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
         const accomplished = await Accomplished.find({
             habit_id: id,
             date_changed: { $gte: startDate, $lte: endDate },
@@ -139,8 +147,10 @@ const createHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Habit already exists');
             return;
         }
+        const formattedDate = convertToPhilippineTime();
 
-        const habit = await Habit.create({ name, goal, color, user_id: decoded.id, });
+        const habit = await Habit.create({ name, goal, color, user_id: decoded.id, created_at: formattedDate
+        });
         const status = await createAccomplishedStatus(habit._id);
 
         responseHandler(res, 201, 'Habit created successfully', { habit, status });
@@ -174,6 +184,12 @@ const updateHabitAccomplishedStatus = async (req: Request, res: Response) => {
             return;
         }
 
+        const dateChangedInPHT = convertToPhilippineTime();
+
+        accomplished.date_changed = dateChangedInPHT;
+        await accomplished.save();
+
+
         responseHandler(res, 200, 'Accomplished status updated successfully', accomplished);
     } catch (error) {
         genericError(res, error);
@@ -190,10 +206,13 @@ const updateHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
-        const updatedAt = new Date().toISOString();
 
-        const habit = await Habit.findByIdAndUpdate(id, { name, goal, color, updated_at: updatedAt }, { new: true });
-
+        const updatedAt = convertToPhilippineTime()
+        const habit = await Habit.findByIdAndUpdate(
+            id,
+            { name, goal, color, updated_at: updatedAt },
+            { new: true }
+        );
         responseHandler(res, 200, 'Habit updated successfully', habit);
     } catch (error) {
         genericError(res, error);
@@ -210,7 +229,7 @@ const deleteHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
-
+        const deletedAt = convertToPhilippineTime();
         await Promise.all([Habit.findByIdAndDelete(id), Accomplished.deleteMany({ habit_id: id })]);
 
         responseHandler(res, 200, 'Habit deleted successfully');
