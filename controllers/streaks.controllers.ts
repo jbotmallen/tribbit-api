@@ -1,13 +1,14 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished, AccomplishedDocument } from "../models/accomplished.models";
-import { endOfWeek, format, isToday, startOfWeek } from "date-fns";
+import { endOfWeek, format, isToday, nextDay, startOfTomorrow, startOfWeek } from "date-fns";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { JwtPayload, verify } from "jsonwebtoken";
 import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
 import { getHabitAllAccomplishedStatuses } from "./accomplished.controllers";
+import { convertToPhilippineTime } from "../utils/timezone";
 
 
 const getHabitStreaks = async (req: Request, res: Response) => {
@@ -437,11 +438,11 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
         const timezoneOffset = new Date().getTimezoneOffset() * 60000; // in milliseconds
         start = new Date(parsedYear, parsedMonth, 1, 0, 0, 0, 0);
         start = new Date(start.getTime() - timezoneOffset); // Adjust to local time
-        
+
         end = new Date(parsedYear, parsedMonth + 1, 0, 23, 59, 59, 999);
         end = new Date(end.getTime() - timezoneOffset); // Adjust to local time
-        
-        
+
+
         const habits = await Habit.find({ user_id: id, deleted_at: null });
         if (habits.length === 0) {
             return responseHandler(res, 404, 'No habits found');
@@ -487,78 +488,76 @@ const getUserAccomplishedCount = async (req: Request, res: Response) => {
         return responseHandler(res, 500, 'An error occurred');
     }
 };
+
 const getUserAccomplishedWeeklyCount = async (req: Request, res: Response) => {
     try {
         await connectToDatabase();
 
         const { week } = req.params;
-        const token = req.cookies.token;
+        const token = req.cookies?.token;
 
         if (!week || !token) {
-            return responseHandler(res, 400, 'Please provide all required fields');
+            return responseHandler(res, 400, "Missing required fields: 'week' or 'token'");
         }
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
-        const id = decoded.id;
+        const userId = decoded?.id;
 
-        if (!id) {
-            return responseHandler(res, 401, 'Unauthorized');
+        if (!userId) {
+            return responseHandler(res, 401, "Unauthorized access: invalid token");
         }
 
-        const [start, end] = week.split('_');
-        console.log("start: ", start, "end: ", end)
+        const [start, end] = week.split("_");
         if (!start || !end) {
-            return responseHandler(res, 400, 'Invalid week range');
+            return responseHandler(res, 400, "Invalid 'week' range format. Expected 'start_end'");
         }
 
         const startDate = new Date(start);
         const endDate = new Date(end);
+        startDate.setDate(startDate.getDate() + 1); // Adjust to local time
+        endDate.setDate(endDate.getDate() + 1); // Adjust to local time
 
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            return responseHandler(res, 400, 'Invalid date format');
+        const userHabits = await Habit.find({ user_id: userId, deleted_at: null });
+        if (userHabits.length === 0) {
+            return responseHandler(res, 404, "No habits found for the user");
         }
 
-        const habits = await Habit.find({ user_id: id, deleted_at: null });
-        if (habits.length === 0) {
-            return responseHandler(res, 404, 'No habits found');
-        }
-
-        const accomplished = await Accomplished.find({
-            habit_id: { $in: habits.map((habit) => habit._id) },
+        const accomplishments = await Accomplished.find({
+            habit_id: { $in: userHabits.map(habit => habit._id) },
             accomplished: true,
-            created_at: { $gte: startDate, $lte: endDate },
+            created_at: { $gte: start, $lte: end },
         });
 
         const weeklyAccomplishments: Record<string, { count: number; habits: string[] }> = {};
 
-        accomplished.forEach((item) => {
-            const date = new Date(item.created_at).toISOString().split('T')[0];
-            if (!weeklyAccomplishments[date]) {
-                weeklyAccomplishments[date] = { count: 0, habits: [] };
+        accomplishments.forEach(accomplishment => {
+            const accomplishmentDate = new Date(accomplishment.created_at).toISOString().split("T")[0];
+
+            if (!weeklyAccomplishments[accomplishmentDate]) {
+                weeklyAccomplishments[accomplishmentDate] = { count: 0, habits: [] };
             }
 
-            weeklyAccomplishments[date].count += 1;
+            weeklyAccomplishments[accomplishmentDate].count += 1;
 
-            const habit = habits.find((habit) => habit._id.toString() === item.habit_id.toString());
-            if (habit && !weeklyAccomplishments[date].habits.includes(habit.name)) {
-                weeklyAccomplishments[date].habits.push(habit.name);
+            const habit = userHabits.find(habit => habit._id.toString() === accomplishment.habit_id.toString());
+            if (habit && !weeklyAccomplishments[accomplishmentDate].habits.includes(habit.name)) {
+                weeklyAccomplishments[accomplishmentDate].habits.push(habit.name);
             }
         });
 
         const dateRange = generateDateRange(startDate, endDate, "weekly");
-        const result = dateRange.map((date) => ({
+        const report = dateRange.map(date => ({
             date,
             count: weeklyAccomplishments[date]?.count || 0,
             habits: weeklyAccomplishments[date]?.habits || [],
         }));
 
-        return responseHandler(res, 200, 'Weekly accomplishments retrieved successfully', result);
+        return responseHandler(res, 200, "Weekly accomplishments retrieved successfully", report);
     } catch (error) {
-        console.error('Error in getUserAccomplishedWeeklyCount:', error);
-        return responseHandler(res, 500, 'An error occurred');
+        console.error("Error in getUserAccomplishedWeeklyCount:", error);
+        return responseHandler(res, 500, "An internal server error occurred");
     }
 };
-
 
 const getHabitDays = async (req: Request, res: Response) => {
     try {
@@ -601,7 +600,7 @@ const getHabitDays = async (req: Request, res: Response) => {
         }));
 
         if (accomplished.length === 0) {
-            return responseHandler(res, 204, 'No accomplishments found');
+            return responseHandler(res, 204, 'No accomplished habits found');
         }
 
         const results = accomplished.map((item, index) => ({
@@ -617,57 +616,57 @@ const getHabitDays = async (req: Request, res: Response) => {
 }
 
 const getUserCurrentStreakByHabitId = (
-  accomplished: AccomplishedDocument[],
-  habitId: string
+    accomplished: AccomplishedDocument[],
+    habitId: string
 ) => {
-  try {
-    const habitAccomplishments = accomplished.filter(
-      (record) => record.habit_id === habitId
-    );
+    try {
+        const habitAccomplishments = accomplished.filter(
+            (record) => record.habit_id === habitId
+        );
 
-    if (habitAccomplishments.length === 0) {
-      return {
-        currentStreak: 0,
-        currentStreakStart: null,
-        currentStreakEnd: null,
-      };
+        if (habitAccomplishments.length === 0) {
+            return {
+                currentStreak: 0,
+                currentStreakStart: null,
+                currentStreakEnd: null,
+            };
+        }
+
+        let currentStreak = 0;
+        let currentStreakStart: Date | null = new Date(habitAccomplishments[0].date_changed);
+        let currentStreakEnd: Date | null = new Date(habitAccomplishments[0].date_changed);
+
+        if (isToday(currentStreakStart)) {
+            currentStreak++;
+        } else {
+            return { currentStreak, currentStreakStart, currentStreakEnd };
+        }
+
+        for (let i = 1; i < habitAccomplishments.length; i++) {
+            const previousDate = new Date(habitAccomplishments[i - 1].date_changed);
+            const currentDate = new Date(habitAccomplishments[i].date_changed);
+
+            const differenceInDays =
+                (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
+
+            if (differenceInDays === 1) {
+                currentStreak++;
+            } else {
+                break;
+            }
+
+            currentStreakEnd = currentDate;
+        }
+
+        return { currentStreak, currentStreakStart, currentStreakEnd };
+    } catch (error) {
+        console.error("Error in getUserCurrentStreakByHabitId:", error);
+        return {
+            currentStreak: 0,
+            currentStreakStart: null,
+            currentStreakEnd: null,
+        };
     }
-
-    let currentStreak = 0;
-    let currentStreakStart: Date | null = new Date(habitAccomplishments[0].date_changed);
-    let currentStreakEnd: Date | null = new Date(habitAccomplishments[0].date_changed);
-
-    if (isToday(currentStreakStart)) {
-      currentStreak++;
-    } else {
-      return { currentStreak, currentStreakStart, currentStreakEnd };
-    }
-
-    for (let i = 1; i < habitAccomplishments.length; i++) {
-      const previousDate = new Date(habitAccomplishments[i - 1].date_changed);
-      const currentDate = new Date(habitAccomplishments[i].date_changed);
-
-      const differenceInDays =
-        (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
-
-      if (differenceInDays === 1) {
-        currentStreak++;
-      } else {
-        break;
-      }
-
-      currentStreakEnd = currentDate;
-    }
-
-    return { currentStreak, currentStreakStart, currentStreakEnd };
-  } catch (error) {
-    console.error("Error in getUserCurrentStreakByHabitId:", error);
-    return {
-      currentStreak: 0,
-      currentStreakStart: null,
-      currentStreakEnd: null,
-    };
-  }
 };
 
-export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks, getHabitDays, getUserCurrentStreakByHabitId, getUserAccomplishedWeeklyCount}
+export { getHabitBestStreak, getHabitCurrentStreak, getUserStreak, getUserConsistency, getUserAccomplishedCount, getHabitStreaks, getHabitDays, getUserCurrentStreakByHabitId, getUserAccomplishedWeeklyCount }
