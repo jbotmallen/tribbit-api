@@ -1,6 +1,5 @@
 import { createHabit, deleteHabit, getHabitAccomplishedDates, getUserHabits, updateHabit, updateHabitAccomplishedStatus } from "../controllers/habit.controllers";
 import { IRouter, Router } from "express";
-import { auth_check } from "../middlewares/authentication";
 
 const habitRouter: IRouter = Router();
 

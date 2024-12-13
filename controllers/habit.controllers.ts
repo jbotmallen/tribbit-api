@@ -10,7 +10,6 @@ import { createAccomplishedStatus, getHabitAllAccomplishedStatuses, getHabitCoun
 import { Accomplished } from '../models/accomplished.models';
 import { getUserByEmailOrUsername } from './user.controllers';
 import { getHabitCurrentStreak } from './streaks.controllers';
-import { endOfWeek, startOfWeek } from 'date-fns';
 import { Types } from 'mongoose';
 import { convertToPhilippineTime } from '../utils/timezone';
 
@@ -37,7 +36,7 @@ const getHabitAccomplishedDates = async (req: Request, res: Response) => {
         const accomplished = await getHabitAllAccomplishedStatuses(habit._id);
 
         const streak = getHabitCurrentStreak(accomplished)
-    
+
         if (!accomplished || accomplished.length === 0) {
             responseHandler(res, 204, 'No accomplished dates found', { habit, accomplished: [], streak });
             return;
@@ -60,7 +59,7 @@ const getHabitGoalProgress = async (id: Types.ObjectId) => {
         const endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 6); // Set to the upcoming Saturday
         console.log("start date", startDate, "end date", endDate);
-        
+
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(23, 59, 59, 999);
         const accomplished = await Accomplished.find({
@@ -96,7 +95,23 @@ const getUserHabits = async (req: Request, res: Response) => {
             return;
         }
 
-        const habits = await Habit.find({ user_id: decoded.id, deleted_at: null });
+        const { page = 1, limit = 5 } = req.query;
+        const pageNumber = Number(page);
+        const limitNumber = Number(limit);
+
+        const skip = (pageNumber - 1) * limitNumber;
+
+        const totalHabits = await Habit.countDocuments({
+            user_id: decoded.id,
+            deleted_at: null
+        });
+
+        const habits = await Habit.find({
+            user_id: decoded.id,
+            deleted_at: null
+        })
+            .skip(skip)
+            .limit(limitNumber);
 
         if (habits.length === 0) {
             responseHandler(res, 204, 'No habits found');
@@ -110,7 +125,13 @@ const getUserHabits = async (req: Request, res: Response) => {
             return { habit, accomplished: accomplishedStatus, goalProgress, weeklyCount };
         }));
 
-        responseHandler(res, 200, 'Habits retrieved successfully', results);
+        responseHandler(res, 200, 'Habits retrieved successfully', {
+            data: results,
+            total: totalHabits,
+            page: pageNumber,
+            limit: limitNumber,
+            totalPages: Math.ceil(totalHabits / limitNumber)
+        });
     } catch (error) {
         genericError(res, error);
     }
@@ -149,7 +170,8 @@ const createHabit = async (req: Request, res: Response) => {
         }
         const formattedDate = convertToPhilippineTime();
 
-        const habit = await Habit.create({ name, goal, color, user_id: decoded.id, created_at: formattedDate
+        const habit = await Habit.create({
+            name, goal, color, user_id: decoded.id, created_at: formattedDate
         });
         const status = await createAccomplishedStatus(habit._id);
 
