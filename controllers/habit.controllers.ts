@@ -57,9 +57,7 @@ const getHabitGoalProgress = async (id: Types.ObjectId) => {
         startDate.setDate(phTime.getDate() - phTime.getDay()); // Set to the previous Sunday (or today if it's Sunday)
 
         const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6); // Set to the upcoming Saturday
-        console.log("start date", startDate, "end date", endDate);
-
+        endDate.setDate(startDate.getDate() + 6); // Set to the upcoming Saturda
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(23, 59, 59, 999);
         const accomplished = await Accomplished.find({
@@ -70,7 +68,7 @@ const getHabitGoalProgress = async (id: Types.ObjectId) => {
 
         return accomplished.length;
     } catch (error) {
-        console.log(error);
+        console.error(error);
         return 0;
     }
 };

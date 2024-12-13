@@ -517,7 +517,11 @@ const getUserAccomplishedWeeklyCount = async (req: Request, res: Response) => {
         startDate.setDate(startDate.getDate() + 1); // Adjust to local time
         endDate.setDate(endDate.getDate() + 1); // Adjust to local time
 
-        const userHabits = await Habit.find({ user_id: userId, deleted_at: null });
+        const userHabits = await Habit.find({
+            user_id: decoded.id,
+            deleted_at: null
+        });
+
         if (userHabits.length === 0) {
             return responseHandler(res, 404, "No habits found for the user");
         }
@@ -564,6 +568,12 @@ const getHabitDays = async (req: Request, res: Response) => {
         await connectToDatabase();
 
         const { week } = req.params;
+        const { page, limit } = req.query;
+
+        const pageNumber = Number(page);
+        const limitNumber = Number(limit);
+
+        const skip = (pageNumber - 1) * limitNumber;
         const token = req.cookies.token;
 
         if (!week || !token) {
@@ -577,16 +587,19 @@ const getHabitDays = async (req: Request, res: Response) => {
             return responseHandler(res, 401, 'Unauthorized');
         }
 
-        const habits = await Habit.find({ user_id: id, deleted_at: null });
-
-        if (habits.length === 0) {
-            return responseHandler(res, 204, 'No habits found');
-        }
-
         const [start, end] = week.split('-');
 
         if (!start || !end) {
             return responseHandler(res, 400, 'Invalid date range');
+        }
+
+        const totalHabits = await Habit.countDocuments({ user_id: id, deleted_at: null });
+
+        const habits = await Habit.find({ user_id: id, deleted_at: null, created_at: { $lte: end } })
+            .skip(skip).limit(limitNumber);
+
+        if (habits.length === 0) {
+            return responseHandler(res, 204, 'No habits found');
         }
 
         const accomplished = await Promise.all(habits.map(async habit => {
@@ -608,7 +621,13 @@ const getHabitDays = async (req: Request, res: Response) => {
             day: item.map(i => format(i.created_at, 'yyyy-MM-dd'))
         }));
 
-        return responseHandler(res, 200, 'Accomplished dates retrieved successfully', results);
+        return responseHandler(res, 200, 'Accomplished dates retrieved successfully', {
+            data: results,
+            total: totalHabits,
+            page: pageNumber,
+            limit: limitNumber,
+            totalPages: Math.ceil(totalHabits / limitNumber)
+        });
     } catch (error) {
         console.error('Error in getHabitDays:', error);
         return responseHandler(res, 500, 'An error occurred');
