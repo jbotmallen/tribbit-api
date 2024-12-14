@@ -170,7 +170,7 @@ const verifyOtp = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         });
 
         responseHandler(res, 200, 'Logged in successfully', {

@@ -29,7 +29,7 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         });
 
         next();
