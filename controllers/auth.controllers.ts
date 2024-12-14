@@ -77,7 +77,7 @@ const loginUser = async (req: Request, res: Response) => {
             return;
         }
 
-        if(existingUser.loginAttempts > 5) {
+        if (existingUser.loginAttempts > 5) {
             responseHandler(res, 403, 'Account locked. Please reset your password.');
             return;
         }
@@ -158,7 +158,7 @@ const verifyOtp = async (req: Request, res: Response) => {
 
         user.loginAttempts = 0;
         await user.save();
-        
+
         const token = sign({
             id: user._id, email: user.email, username: user.username
         },
@@ -170,7 +170,7 @@ const verifyOtp = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: 'strict'
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         });
 
         responseHandler(res, 200, 'Logged in successfully', {
