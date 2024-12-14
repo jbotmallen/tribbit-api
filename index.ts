@@ -22,6 +22,8 @@ const corsOptions: cors.CorsOptions = {
   credentials: true,
 };
 
+app.set("trust proxy", true);
+
 app.use(cors(corsOptions));
 app.use(rateLimiter);
 
