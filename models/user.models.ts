@@ -1,5 +1,4 @@
 import { model, Schema, models, Model } from "mongoose";
-import { ONE_HOUR } from "../utils/constants";
 
 type UserDocument = Document & {
     email: string;
@@ -16,14 +15,13 @@ const userSchema = new Schema({
     password: { type: String, required: true },
     verified: { type: Boolean, default: false },
     loginAttempts: { type: Number, default: 0 },
-    created_at: { type: Date, default: Date.now, expires: ONE_HOUR },
+    created_at: { type: Date, default: Date.now },
     verified_at: { type: Date, default: null },
     updated_at: { type: Date, default: Date.now },
     deleted_at: { type: Date, default: null },
-    expires: { type: Date, default: null }
 });
 
-userSchema.index({ created_at: 1 }, { expireAfterSeconds: ONE_HOUR });
+userSchema.index({ created_at: 1 }, { expireAfterSeconds: 3600 });
 
 userSchema.pre("save", function (next) {
     if(this.verified && !this.verified_at) {
