@@ -80,6 +80,7 @@ const getUserHabits = async (req: Request, res: Response) => {
         const token = req.cookies.token;
 
         if (!token) {
+            console.log('No token');
             responseHandler(res, 401, 'Unauthorized');
             return;
         }
