@@ -8,7 +8,7 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
     console.log('Cookies:', req.cookies);
     console.log('Authorization Header:', req.headers.authorization);
-    
+
     if (!token) {
         console.log('No token found in the middleware');
         responseHandler(res, 401, 'Unauthorized Access');
@@ -30,7 +30,6 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined,
         });
 
         next();
