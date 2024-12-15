@@ -31,7 +31,6 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
             maxAge: ONE_DAY,
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined,
-            path: '/api'
         });
 
         next();

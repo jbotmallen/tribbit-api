@@ -172,7 +172,6 @@ const verifyOtp = async (req: Request, res: Response) => {
             maxAge: ONE_DAY,
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined,
-            path: '/api'
         });
 
         responseHandler(res, 200, 'Logged in successfully', {
@@ -371,7 +370,6 @@ const logoutUser = async (req: Request, res: Response) => {
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined,
-            path: '/api'
         })
 
         res.end();
