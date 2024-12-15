@@ -170,7 +170,7 @@ const verifyOtp = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         });
 
         responseHandler(res, 200, 'Logged in successfully', {
@@ -367,10 +367,9 @@ const logoutUser = async (req: Request, res: Response) => {
         res.clearCookie("token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            expires: new Date(0)
         });
-
-        res.destroy();
 
         responseHandler(res, 200, 'User logged out successfully');
     } catch (error) {

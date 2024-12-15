@@ -3,8 +3,9 @@ import { JwtPayload, sign, verify } from 'jsonwebtoken';
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { isJwtError } from "../utils/error-handler";
 import { ONE_DAY } from "../utils/constants";
+import { getUserById } from "../controllers/user.controllers";
 
-const auth_check = (req: Request, res: Response, next: NextFunction) => {
+const auth_check = async (req: Request, res: Response, next: NextFunction) => {
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
     console.log('Cookies:', req.cookies);
     console.log('Authorization Header:', req.headers.authorization);
@@ -19,17 +20,29 @@ const auth_check = (req: Request, res: Response, next: NextFunction) => {
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
         if (decoded.exp! * 1000 < Date.now()) { // Multiply 1000 to convert seconds to milliseconds
+            res.clearCookie('token', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            });
+
             return responseHandler(res, 401, 'Session expired. Please log in again.');
         }
 
         const { id, email, username } = decoded;
+        const existingUser = await getUserById(id);
+
+        if (!existingUser) {
+            return responseHandler(res, 404, 'User not found');
+        }
+
         const newToken = sign({ id, email, username }, process.env.JWT_SECRET!, { expiresIn: '1d' });
 
         res.cookie('token', newToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         });
 
         next();
