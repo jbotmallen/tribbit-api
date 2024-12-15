@@ -374,6 +374,8 @@ const logoutUser = async (req: Request, res: Response) => {
             path: '/api'
         })
 
+        res.end();
+
         responseHandler(res, 200, 'User logged out successfully');
     } catch (error) {
         genericError(res, error);
