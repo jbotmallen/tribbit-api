@@ -357,8 +357,19 @@ const resetPassword = async (req: Request, res: Response) => {
 
 const logoutUser = async (req: Request, res: Response) => {
     try {
-        res.clearCookie('token');
-        res.setHeader('Authorization', '');
+        const token = req.cookies.token;
+
+        if (!token) {
+            responseHandler(res, 401, 'No token found, unauthorized access');
+            return;
+        }
+
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
+        })
 
         responseHandler(res, 200, 'User logged out successfully');
     } catch (error) {
