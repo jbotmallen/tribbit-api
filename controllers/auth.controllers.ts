@@ -111,7 +111,9 @@ const loginUser = async (req: Request, res: Response) => {
             return;
         }
 
-        const otpSent = await sendMail(existingUser.email, 'Login OTP', otpEmailTemplate(otp));
+        const otpSent = process.env.NODE_ENV === 'production' ?
+            await sendMail(existingUser.email, 'Login OTP', otpEmailTemplate(otp))
+            : true;
 
         if (!otpSent) {
             responseHandler(res, 500, 'OTP not sent');
@@ -170,7 +172,7 @@ const verifyOtp = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         });
 
         responseHandler(res, 200, 'Logged in successfully', {
@@ -367,7 +369,7 @@ const logoutUser = async (req: Request, res: Response) => {
         res.clearCookie("token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             expires: new Date(0)
         });
 

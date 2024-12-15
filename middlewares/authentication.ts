@@ -20,12 +20,6 @@ const auth_check = async (req: Request, res: Response, next: NextFunction) => {
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
         if (decoded.exp! * 1000 < Date.now()) { // Multiply 1000 to convert seconds to milliseconds
-            res.clearCookie('token', {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-            });
-
             return responseHandler(res, 401, 'Session expired. Please log in again.');
         }
 
@@ -42,7 +36,7 @@ const auth_check = async (req: Request, res: Response, next: NextFunction) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: ONE_DAY,
-            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         });
 
         next();
