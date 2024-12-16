@@ -113,5 +113,5 @@
     "typeRoots": ["./types", "./node_modules/@types"],
   
   },
-  "include": ["types.d.ts", "src/**/*"]
+  "include": ["types.d.ts", "src/**/*", "tests"]
 }

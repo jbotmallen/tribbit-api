@@ -91,7 +91,7 @@ describe("Habit Controllers", () => {
         mockReq.cookies = {}; 
         
         
-        const authCheckMiddleware = jest.fn((req, res, next) => {
+        const authCheckMiddleware = jest.fn((req: any, res: Response<any, Record<string, any>>, next: any) => {
             return responseHandler(res, 401, "Unauthorized Access");
         });
     

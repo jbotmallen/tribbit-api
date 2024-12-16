@@ -265,8 +265,13 @@ const deleteHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
-        const deletedAt = convertToPhilippineTime();
-        await Promise.all([Habit.findByIdAndDelete(id), Accomplished.deleteMany({ habit_id: id })]);
+        const habit = await Habit.findByIdAndDelete(id);
+        if (!habit) {
+            responseHandler(res, 404, 'Habit not found');
+            return;
+        }
+
+        await Accomplished.deleteMany({ habit_id: id });
 
         responseHandler(res, 200, 'Habit deleted successfully');
     } catch (error) {
