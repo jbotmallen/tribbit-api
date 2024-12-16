@@ -132,7 +132,13 @@ const deleteUser = async (req: Request, res: Response) => {
         }
 
         const decoded = verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        const existingUser = await User.findOneAndDelete({ _id: decoded.id });
 
+        if (!existingUser) {
+            responseHandler(res, 404, "User not found!");
+            return;
+        }
+        
         
         const habits = await Habit.find({ user_id: decoded._id });
         
@@ -142,13 +148,7 @@ const deleteUser = async (req: Request, res: Response) => {
         
         await Habit.deleteMany({ user_id: decoded._id });
         
-        const existingUser = await User.findOneAndDelete({ _id: decoded.id });
 
-        if (!existingUser) {
-            responseHandler(res, 404, "User not found!");
-            return;
-        }
-        
         logoutUser(req, res);
         responseHandler(res, 200, "User deleted successfully");
     } catch (error) {
