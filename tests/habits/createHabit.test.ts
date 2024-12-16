@@ -1,21 +1,21 @@
 import { Request, Response } from "express";
 import { verify } from "jsonwebtoken";
-import { Habit } from "../models/habit.models";
-import { createHabit, updateHabit } from "../controllers/habit.controllers";
-import { responseHandler } from "../utils/response-handlers";
-import { connectToDatabase } from "../utils/db";
-import { createAccomplishedStatus } from "../controllers/accomplished.controllers";
-import { sanitize } from "../utils/sanitation";
-import { convertToPhilippineTime } from "../utils/timezone";
+import { Habit } from "../../models/habit.models";
+import { createHabit, updateHabit } from "../../controllers/habit.controllers";
+import { responseHandler } from "../../utils/response-handlers";
+import { connectToDatabase } from "../../utils/db";
+import { createAccomplishedStatus } from "../../controllers/accomplished.controllers";
+import { sanitize } from "../../utils/sanitation";
+import { convertToPhilippineTime } from "../../utils/timezone";
 
 jest.mock("jsonwebtoken");
-jest.mock("../utils/db");
-jest.mock("../controllers/user.controllers");
-jest.mock("../utils/response-handlers");
-jest.mock("../models/habit.models");
-jest.mock("../controllers/accomplished.controllers");
-jest.mock("../utils/sanitation");
-jest.mock("../utils/timezone");
+jest.mock("../../utils/db");
+jest.mock("../../controllers/user.controllers");
+jest.mock("../../utils/response-handlers");
+jest.mock("../../models/habit.models");
+jest.mock("../../controllers/accomplished.controllers");
+jest.mock("../../utils/sanitation");
+jest.mock("../../utils/timezone");
 
 describe("Habit Controllers", () => {
   let mockReq: Partial<Request>;
@@ -194,54 +194,4 @@ describe("Habit Controllers", () => {
     });
     
   });
-
-  describe("updateHabit", () => {
-    test("should successfully update a habit", async () => {
-      const mockDecodedToken = {
-        id: "user123",
-        email: "test@example.com",
-      };
-    
-      const mockHabit = {
-        _id: "habit123",
-        name: "Test Habit",
-        goal: 6,
-        color: "#BFFF95",
-        user_id: "user123",
-      };
-    
-      (connectToDatabase as jest.Mock).mockResolvedValue(true);
-      (verify as jest.Mock).mockReturnValue(mockDecodedToken);
-      (Habit.findByIdAndUpdate as jest.Mock).mockResolvedValue(mockHabit);
-    
-      mockReq.body = {
-        id: "habit123",
-        name: "Updated Habit",
-        goal: 5,
-        color: "#89E2CD",
-      };
-    
-      await updateHabit(mockReq as Request, mockRes as Response);
-    
-      // Assertions
-      expect(Habit.findByIdAndUpdate).toHaveBeenCalledWith(
-        "habit123",
-        {
-          name: "Updated Habit",
-          goal: 5,
-          color: "#89E2CD",
-          updated_at: expect.any(String),
-        },
-        { new: true }
-      );
-    
-      expect(responseHandler).toHaveBeenCalledWith(
-        mockRes,
-        200,
-        "Habit updated successfully",
-        mockHabit
-      );
-    });
-    
-  })
 });

@@ -231,6 +231,11 @@ const updateHabit = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
+        
+        if (goal <= 0 || goal > 7) {
+            return responseHandler(res, 400, "Invalid habit data provided");
+        }
+        
 
         const updatedAt = convertToPhilippineTime()
         const habit = await Habit.findByIdAndUpdate(
@@ -238,6 +243,12 @@ const updateHabit = async (req: Request, res: Response) => {
             { name, goal, color, updated_at: updatedAt },
             { new: true }
         );
+
+        if (!habit) {
+            responseHandler(res, 404, 'Habit not found');
+            return;
+        }
+
         responseHandler(res, 200, 'Habit updated successfully', habit);
     } catch (error) {
         genericError(res, error);
