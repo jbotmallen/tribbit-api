@@ -39,35 +39,35 @@ describe("updateProfileInformation", () => {
     jest.clearAllMocks();
   });
 
-//   test("should return 401 if no token is found", async () => {
-//     mockReq.cookies.token = undefined;
+  test("should return 401 if no token is found", async () => {
+    mockReq.cookies.token = undefined;
 
-//     await updateProfileInformation(mockReq as Request, mockRes as Response);
+    await updateProfileInformation(mockReq as Request, mockRes as Response);
 
-//     expect(responseHandler).toHaveBeenCalledWith(mockRes, 401, "Unauthorized");
-//   });
+    expect(responseHandler).toHaveBeenCalledWith(mockRes, 401, "Unauthorized");
+  });
 
-//   test("should return 404 if user is not found", async () => {
-//     mockReq = {
-//         cookies: { token: "valid-token" },
-//         body: { username: "newUsername" },
-//     };
-//     mockRes = {
-//         status: jest.fn().mockReturnThis(),
-//         json: jest.fn(),
-//     };
+  test("should return 404 if user is not found", async () => {
+    mockReq = {
+        cookies: { token: "valid-token" },
+        body: { username: "newUsername" },
+    };
+    mockRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+    };
 
-//     // Mock token verification
-//     (verify as jest.Mock).mockReturnValue({ id: "userId" });
+    // Mock token verification
+    (verify as jest.Mock).mockReturnValue({ id: "userId" });
 
-//     // Mock database operations
-//     (connectToDatabase as jest.Mock).mockResolvedValue(true);
-//     (User.findOne as jest.Mock).mockResolvedValue(null); // User not found
+    // Mock database operations
+    (connectToDatabase as jest.Mock).mockResolvedValue(true);
+    (User.findOne as jest.Mock).mockResolvedValue(null); // User not found
 
-//     await updateProfileInformation(mockReq as Request, mockRes as Response);
+    await updateProfileInformation(mockReq as Request, mockRes as Response);
 
-//     expect(responseHandler).toHaveBeenCalledWith(mockRes, 404, "User not found!");
-// });
+    expect(responseHandler).toHaveBeenCalledWith(mockRes, 404, "User not found!");
+});
 test("should return 400 if no field is provided to update", async () => {
     mockReq = {
         cookies: { token: "valid-token" },
