@@ -25,6 +25,16 @@ const registerUser = async (req: Request, res: Response) => {
             responseHandler(res, 400, 'Please provide all required fields');
             return;
         }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            responseHandler(res, 400, 'Invalid email format');
+            return;
+        }
+
+        if (username.length < 3) {
+            responseHandler(res, 400, 'Username must be at least 3 characters long');
+            return;
+        }
 
         const [existingEmail, existingUsername] = await Promise.all
             ([getUserByEmailOrUsername(email), getUserByEmailOrUsername(username)]);
