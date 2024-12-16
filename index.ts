@@ -33,7 +33,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-app.use(requestLogger);
+process.env.NODE_ENV !== "test" && app.use(requestLogger);
 app.use("/api", router);
 app.all("*", (req: Request, res: Response) => {
   responseHandler(res, 404, "Route not found");
