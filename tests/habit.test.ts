@@ -1,73 +1,81 @@
-import request from 'supertest';
-import app from '../index';
-import { Habit } from '../models/habit.models';
-import { sign } from 'jsonwebtoken';
-import { jwtDecode } from 'jwt-decode';
+import { Request, Response, NextFunction } from "express";
+import { verify, sign } from "jsonwebtoken";
+import { getUserById } from "../controllers/user.controllers";
+import { responseHandler } from "../utils/response-handlers";
+import { auth_check } from "../middlewares/authentication";
 
-// Mock the Habit model's find method
-jest.mock('../models/habit.models', () => ({
-  Habit: {
-    find: jest.fn(), // Mock the find method
-    countDocuments: jest.fn(), // Mock countDocuments
-  },
-}));
+jest.mock("jsonwebtoken");
+jest.mock("../controllers/user.controllers");
+jest.mock("../utils/response-handlers");
 
-// Mock the js-cookie library
-jest.mock('js-cookie', () => ({
-  get: jest.fn(() => 'mocked_token_value'), // Mock the return value for js-cookie's get method
-}));
-describe('GET /api/habits/', () => {
-  let token: string;
+describe("auth_check middleware", () => {
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockNext: jest.Mock;
 
-  beforeAll(async () => {
-    // Generate a valid token for a user
-    token = sign(
-      { id: '675f0ca9062cef78d010f052', email: 'thatinspector00@gmail.com', username: 'leaf' },
-      process.env.JWT_SECRET || 'test_secret',
-      { expiresIn: '1h' }
+  beforeEach(() => {
+    process.env.JWT_SECRET = "kyungchu";
+
+    mockReq = {
+      cookies: { token: "mockValidToken" },
+      headers: { authorization: "Bearer mockValidToken" },
+    };
+
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      cookie: jest.fn(),
+    };
+
+    mockNext = jest.fn();
+  });
+
+  test("should call next for a valid token", async () => {
+    // Detailed mocking
+    const mockDecodedToken = { 
+      id: "user123", 
+      email: "test@example.com", 
+      username: "testuser",
+      exp: Math.floor(Date.now() / 1000) + 3600 
+    };
+
+    // Mock verify to simulate successful token verification
+    (verify as jest.Mock).mockImplementation((token, secret) => {
+      if (token === "mockValidToken" && secret === process.env.JWT_SECRET) {
+        return mockDecodedToken;
+      }
+      throw new Error("Invalid token");
+    });
+
+    // Mock getUserById to return a user
+    (getUserById as jest.Mock).mockResolvedValue({ 
+      id: "user123", 
+      email: "test@example.com" 
+    });
+
+    // Mock sign to return a new token
+    (sign as jest.Mock).mockReturnValue("newMockToken");
+
+    // Mock responseHandler to do nothing
+    (responseHandler as jest.Mock).mockImplementation();
+
+    // Call the middleware
+    await auth_check(
+      mockReq as Request, 
+      mockRes as Response, 
+      mockNext
     );
+
+    // Debug logging
+    console.log("Verify mock calls:", (verify as jest.Mock).mock.calls);
+    console.log("getUserById mock calls:", (getUserById as jest.Mock).mock.calls);
+    console.log("Next function calls:", mockNext.mock.calls);
+    console.log("ResponseHandler calls:", (responseHandler as jest.Mock).mock.calls);
+
+    // Assertions
+    expect(verify).toHaveBeenCalledWith("mockValidToken", process.env.JWT_SECRET);
+    expect(getUserById).toHaveBeenCalledWith("user123");
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRes.cookie).toHaveBeenCalled();
   });
-
-  it('should return 200 and a list of habits when a valid token is provided in cookies', async () => {
-    // Mock js-cookie to return the valid token
-    require('js-cookie').get.mockReturnValue(token); // Mocking js-cookie to return the valid token
-
-    // Decode the token to check its validity (by decoding it and checking the expiration)
-    const decodedToken = jwtDecode(token);
-    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-    expect(decodedToken.exp).toBeGreaterThan(currentTime); // Check if token is not expired
-
-    // Send the request with the token included in cookies
-    const res = await request(app)
-      .get('/api/habits/')
-      .set('Cookie', `token=${token}`); // Include the token in cookies
-
-    // Check the status and response body
-    console.log("Response on valid token:", res.body);
-    console.log("Response Status:", res.status);
-    console.log("Response Headers:", res.headers);
-    expect(res.status).toBe(200);
-    // Verify that Habit.find was called once (you can uncomment the line if needed)
-    // expect(Habit.find).toHaveBeenCalledTimes(1);
-  });
-
-
-
-
-
-
-  // it('should return 401 if no token is provided in cookies', async () => {
-  //   const res = await request(app)
-  //     .get('/api/habits/');
-  //   expect(res.status).toBe(401);
-  //   expect(res.body.message).toBe('Unauthorized Access');
-  // });
-
-  // it('should return 498 if an invalid token is provided in cookies', async () => {
-  //   const res = await request(app)
-  //     .get('/api/habits/')
-  //     .set('Cookie', 'token=invalid_token'); // Invalid token
-  //   expect(res.status).toBe(400);
-  //   expect(res.body.message).toBe('Invalid token');
-  // });
 });

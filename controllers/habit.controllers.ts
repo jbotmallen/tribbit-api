@@ -259,4 +259,4 @@ const deleteHabit = async (req: Request, res: Response) => {
     }
 };
 
-export { createHabit, getUserHabits, getHabitAccomplishedDates, updateHabit, updateHabitAccomplishedStatus, deleteHabit };
+export { createHabit, getUserHabits, getHabitAccomplishedDates, updateHabit, updateHabitAccomplishedStatus, deleteHabit, getHabitGoalProgress };
