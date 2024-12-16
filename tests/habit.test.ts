@@ -1,81 +1,197 @@
-import { Request, Response, NextFunction } from "express";
-import { verify, sign } from "jsonwebtoken";
-import { getUserById } from "../controllers/user.controllers";
+import { Request, Response } from "express";
+import { verify } from "jsonwebtoken";
+import { Habit } from "../models/habit.models";
+import { createHabit } from "../controllers/habit.controllers";
 import { responseHandler } from "../utils/response-handlers";
-import { auth_check } from "../middlewares/authentication";
+import { connectToDatabase } from "../utils/db";
+import { createAccomplishedStatus } from "../controllers/accomplished.controllers";
+import { sanitize } from "../utils/sanitation";
+import { convertToPhilippineTime } from "../utils/timezone";
 
 jest.mock("jsonwebtoken");
+jest.mock("../utils/db");
 jest.mock("../controllers/user.controllers");
 jest.mock("../utils/response-handlers");
+jest.mock("../models/habit.models");
+jest.mock("../controllers/accomplished.controllers");
+jest.mock("../utils/sanitation");
+jest.mock("../utils/timezone");
 
-describe("auth_check middleware", () => {
+describe("Habit Controllers", () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
-  let mockNext: jest.Mock;
 
   beforeEach(() => {
-    process.env.JWT_SECRET = "kyungchu";
+    process.env.JWT_SECRET = "test-secret";
 
     mockReq = {
-      cookies: { token: "mockValidToken" },
-      headers: { authorization: "Bearer mockValidToken" },
+      cookies: { token: "validToken" },
+      query: {},
+      body: {},
     };
 
     mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
-      cookie: jest.fn(),
     };
 
-    mockNext = jest.fn();
+    jest.clearAllMocks();
   });
 
-  test("should call next for a valid token", async () => {
-    // Detailed mocking
-    const mockDecodedToken = { 
-      id: "user123", 
-      email: "test@example.com", 
-      username: "testuser",
-      exp: Math.floor(Date.now() / 1000) + 3600 
-    };
+  describe("createHabit", () => {
+    test("should successfully create a habit", async () => {
+      const mockDecodedToken = {
+        id: "user123",
+        email: "test@example.com",
+      };
 
-    // Mock verify to simulate successful token verification
-    (verify as jest.Mock).mockImplementation((token, secret) => {
-      if (token === "mockValidToken" && secret === process.env.JWT_SECRET) {
-        return mockDecodedToken;
-      }
-      throw new Error("Invalid token");
+      (connectToDatabase as jest.Mock).mockResolvedValue(true);
+      (verify as jest.Mock).mockReturnValue(mockDecodedToken);
+      (Habit.findOne as jest.Mock).mockResolvedValue(null);
+
+      (sanitize as jest.Mock).mockReturnValue({ error: null });
+
+      (convertToPhilippineTime as jest.Mock).mockReturnValue("2024-01-01T00:00:00Z");
+
+      (Habit.create as jest.Mock).mockResolvedValue({
+        _id: "habit123",
+        name: "Test Habit",
+        goal: 6,
+        user_id: "user123",
+        color: "#BFFF95",
+      });
+
+      (createAccomplishedStatus as jest.Mock).mockResolvedValue({});
+
+      mockReq.body = {
+        name: "Test Habit",
+        goal: 6,
+        color: "#BFFF95",
+      };
+
+      await createHabit(mockReq as Request, mockRes as Response);
+
+      expect(Habit.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Test Habit",
+          goal: 6,
+          color: "#BFFF95",
+          user_id: "user123",
+          created_at: "2024-01-01T00:00:00Z",
+        })
+      );
+
+      expect(responseHandler).toHaveBeenCalledWith(
+        mockRes,
+        201,
+        "Habit created successfully",
+        expect.any(Object)
+      );
     });
 
-    // Mock getUserById to return a user
-    (getUserById as jest.Mock).mockResolvedValue({ 
-      id: "user123", 
-      email: "test@example.com" 
+    test("should return 400 for missing required fields", async () => {
+      const mockDecodedToken = {
+        id: "user123",
+        email: "test@example.com",
+      };
+
+      (connectToDatabase as jest.Mock).mockResolvedValue(true);
+      (verify as jest.Mock).mockReturnValue(mockDecodedToken);
+
+      mockReq.body = {
+        name: "hihelo",
+      };
+
+      await createHabit(mockReq as Request, mockRes as Response);
+
+      expect(responseHandler).toHaveBeenCalledWith(
+        mockRes,
+        400,
+        "Please provide all required fields"
+      );
+    });
+    
+    test("should return 400 for invalid color value", async () => {
+      const mockDecodedToken = {
+        id: "user123",
+        email: "test@example.com",
+      };
+    
+      (connectToDatabase as jest.Mock).mockResolvedValue(true);
+      (verify as jest.Mock).mockReturnValue(mockDecodedToken);
+      (Habit.findOne as jest.Mock).mockResolvedValue(null);
+    
+      (sanitize as jest.Mock).mockReturnValue({ error: null });
+    
+      mockReq.body = {
+        name: "Test Habit",
+        goal: 6,
+        color: "#INVALID",
+      };
+    
+      (Habit.create as jest.Mock).mockImplementation(() => {
+        const error = new Error();
+        error.name = "ValidationError";
+        error.message = "`#INVALID` is not a valid enum value for path `color`.";
+        throw error;
+      });
+    
+      await createHabit(mockReq as Request, mockRes as Response);
+    
+      expect(Habit.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Test Habit",
+          goal: 6,
+          color: "#INVALID",
+        })
+      );
+    
+      expect(responseHandler).toHaveBeenCalledWith(
+        mockRes,
+        400,
+        "`#INVALID` is not a valid enum value for path `color`."
+      );
     });
 
-    // Mock sign to return a new token
-    (sign as jest.Mock).mockReturnValue("newMockToken");
-
-    // Mock responseHandler to do nothing
-    (responseHandler as jest.Mock).mockImplementation();
-
-    // Call the middleware
-    await auth_check(
-      mockReq as Request, 
-      mockRes as Response, 
-      mockNext
-    );
-
-    // Debug logging
-    console.log("Verify mock calls:", (verify as jest.Mock).mock.calls);
-    console.log("getUserById mock calls:", (getUserById as jest.Mock).mock.calls);
-    console.log("Next function calls:", mockNext.mock.calls);
-    console.log("ResponseHandler calls:", (responseHandler as jest.Mock).mock.calls);
-
-    // Assertions
-    expect(verify).toHaveBeenCalledWith("mockValidToken", process.env.JWT_SECRET);
-    expect(getUserById).toHaveBeenCalledWith("user123");
-    expect(mockNext).toHaveBeenCalled();
-    expect(mockRes.cookie).toHaveBeenCalled();
+    test("should return 400 for goal being greater than 7", async () => {
+      const mockDecodedToken = {
+        id: "user123",
+        email: "test@example.com",
+      };
+    
+      (connectToDatabase as jest.Mock).mockResolvedValue(true);
+      (verify as jest.Mock).mockReturnValue(mockDecodedToken);
+      (Habit.findOne as jest.Mock).mockResolvedValue(null);
+    
+      (sanitize as jest.Mock).mockReturnValue({ error: null });
+    
+      mockReq.body = {
+        name: "Test Habit",
+        goal: 19,
+      };
+    
+      (Habit.create as jest.Mock).mockImplementation(() => {
+        const error = new Error();
+        error.name = "ValidationError";
+        error.message = "Goal should be less than or equal to 7";
+        throw error;
+      });
+    
+      await createHabit(mockReq as Request, mockRes as Response);
+    
+      expect(Habit.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Test Habit",
+          goal: 19,
+        })
+      );
+    
+      expect(responseHandler).toHaveBeenCalledWith(
+        mockRes,
+        400,
+        "Goal should be less than or equal to 7"
+      );
+    });
+    
   });
 });

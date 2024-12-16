@@ -9,7 +9,7 @@ type HabitDocument = Document & {
 
 const habitSchema = new Schema({
     name: { type: String, required: true },
-    goal: { type: Number, required: true },
+    goal: { type: Number, required: true, max: 7 },
     user_id: { type: Types.ObjectId, ref: "User", required: true },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },

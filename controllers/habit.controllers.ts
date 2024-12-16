@@ -175,9 +175,13 @@ const createHabit = async (req: Request, res: Response) => {
         const status = await createAccomplishedStatus(habit._id);
 
         responseHandler(res, 201, 'Habit created successfully', { habit, status });
-    } catch (error) {
-        genericError(res, error);
-    }
+    } catch (error: any) {
+        if (error.name === "ValidationError") {
+            responseHandler(res, 400, error.message);
+          } else {
+            genericError(res, error);
+          }
+          }
 };
 
 const updateHabitAccomplishedStatus = async (req: Request, res: Response) => {
