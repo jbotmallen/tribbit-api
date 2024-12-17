@@ -26,8 +26,13 @@ const getHabitStreaks = async (req: Request, res: Response) => {
 
         const accomplished = await Accomplished.find({ habit_id: id, accomplished: true }).sort({ date_changed: -1 });
 
-        const { bestStreak, bestStreakDates } = getHabitBestStreak(accomplished);
         const { currentStreak, currentStreakDates } = getHabitCurrentStreak(accomplished); // Destructure to match return values
+        let { bestStreak, bestStreakDates } = getHabitBestStreak(accomplished);
+
+        if(currentStreak > bestStreak) {
+            bestStreak = currentStreak;
+            bestStreakDates = currentStreakDates || [];
+        }
 
         const [accomplishedDatesPerHabit] = await Promise.all([
             getHabitAllAccomplishedStatuses(habit._id)
