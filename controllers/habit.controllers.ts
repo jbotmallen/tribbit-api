@@ -98,8 +98,6 @@ const getUserHabits = async (req: Request, res: Response) => {
         const pageNumber = Number(page);
         const limitNumber = Number(limit);
 
-        const skip = (pageNumber - 1) * limitNumber;
-
         const totalHabits = await Habit.countDocuments({
             user_id: decoded.id,
             deleted_at: null
@@ -108,9 +106,7 @@ const getUserHabits = async (req: Request, res: Response) => {
         const habits = await Habit.find({
             user_id: decoded.id,
             deleted_at: null
-        })
-            .skip(skip)
-            .limit(limitNumber);
+        });
 
         if (habits.length === 0) {
             responseHandler(res, 204, 'No habits found');

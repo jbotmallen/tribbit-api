@@ -14,7 +14,6 @@ jest.mock("../utils/mail", () => ({
 
 beforeAll(async () => {
   await connectToDatabase();
-    await User.deleteMany({});
 
   server = app.listen(8081, () => {
     console.log('Test server running on port 8081');
