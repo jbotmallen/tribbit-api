@@ -1,15 +1,12 @@
-import { Types } from "mongoose";
 import { connectToDatabase } from "../utils/db";
 import { Accomplished, AccomplishedDocument } from "../models/accomplished.models";
-import { endOfWeek, format, isToday, nextDay, startOfTomorrow, startOfWeek } from "date-fns";
+import { endOfWeek, format, isToday, startOfWeek } from "date-fns";
 import { Habit } from "../models/habit.models";
 import { Request, Response } from "express";
 import { genericError, responseHandler } from "../utils/response-handlers";
 import { JwtPayload, verify } from "jsonwebtoken";
-import { generateDateRange, getEndOfWeek, getStartOfMonth, getStartOfWeek } from "../utils/helpers";
+import { generateDateRange } from "../utils/helpers";
 import { getHabitAllAccomplishedStatuses } from "./accomplished.controllers";
-import { convertToPhilippineTime } from "../utils/timezone";
-
 
 const getHabitStreaks = async (req: Request, res: Response) => {
     try {

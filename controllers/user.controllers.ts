@@ -77,6 +77,12 @@ const updateProfileInformation = async (req: Request, res: Response) => {
         await connectToDatabase();
 
         const token = req.cookies.token;
+        const { username } = req.body;
+
+        if (!username) {
+            responseHandler(res, 400, "Please provide at least one field to update");
+            return;
+        }
 
         if (!token) {
             responseHandler(res, 401, 'Unauthorized');
@@ -91,22 +97,17 @@ const updateProfileInformation = async (req: Request, res: Response) => {
             return;
         }
 
-        const { username } = req.body;
-
-        if (!username) {
-            responseHandler(res, 400, "Please provide at least one field to update");
-            return;
-        }
-
         const existingUsername = await getUserByEmailOrUsername(username);
-
-        if (existingUsername) {
-            responseHandler(res, 400, "Username already exists");
-            return;
-        }
 
         if (existingUser.username === username) {
             responseHandler(res, 400, "Username is the same as the current one");
+            return;
+        }
+
+        if (existingUsername) {
+            console.log("Token verified, user ID:", decoded.id);
+            console.log("User found:", existingUser);
+            responseHandler(res, 400, "Username already exists");
             return;
         }
 
@@ -138,16 +139,16 @@ const deleteUser = async (req: Request, res: Response) => {
             responseHandler(res, 404, "User not found!");
             return;
         }
-        
-        
+
+
         const habits = await Habit.find({ user_id: decoded._id });
-        
+
         Promise.all(habits.map(async (habit) => {
             await Accomplished.deleteMany({ habit_id: habit._id });
         }));
-        
+
         await Habit.deleteMany({ user_id: decoded._id });
-        
+
 
         logoutUser(req, res);
         responseHandler(res, 200, "User deleted successfully");
