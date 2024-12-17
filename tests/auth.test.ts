@@ -14,7 +14,7 @@ jest.mock("../utils/mail", () => ({
 
 beforeAll(async () => {
   await connectToDatabase();
-  await User.deleteMany({});
+    await User.deleteMany({});
 
   server = app.listen(8081, () => {
     console.log('Test server running on port 8081');
@@ -139,112 +139,20 @@ describe("POST /api/auth/login", () => {
         });
 
       expect(response.status).toBe(200);
-      const possibleMessages = ["OTP sent to email.", "OTP already sent. Check your email."];
+      const possibleMessages = ["OTP sent to email", "OTP already sent. Check your email."];
       expect(possibleMessages).toContain(response.body.message);
       expect(response.body.data).toHaveProperty("email");
     });
   })
 })
 
-
-// describe("POST /api/auth/verify-otp", () => {
-//   test("should verify OTP successfully", async () => {
-//     (Otp.findOne as jest.Mock).mockResolvedValue({ email: "testuser@gmail.com", otp: "123456" });
-//     (User.updateOne as jest.Mock).mockResolvedValue({ acknowledged: true });
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-otp")
-//           .send({ email: "testuser@gmail.com", otp: "123456" });
-
-//       expect(response.status).toBe(200);
-//       expect(response.body.message).toBe("OTP verified. Email verified successfully.");
-//   });
-
-//   test("should return 400 for invalid OTP", async () => {
-//     (Otp.findOne as jest.Mock).mockResolvedValue({ email: "testuser@gmail.com", otp: "654321" });
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-otp")
-//           .send({ email: "testuser@gmail.com", otp: "123456" });
-
-//       expect(response.status).toBe(400);
-//       expect(response.body.message).toBe("Invalid OTP");
-//   });
-
-//   test("should return 400 if OTP is not found", async () => {
-//     (Otp.findOne as jest.Mock).mockResolvedValue(null);
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-otp")
-//           .send({ email: "testuser@gmail.com", otp: "123456" });
-
-//       expect(response.status).toBe(400);
-//       expect(response.body.message).toBe("Invalid OTP");
-//   });
-// });
-
-// describe("POST /api/auth/verify-email", () => {
-//   test("should verify email successfully", async () => {
-//       (jwt.verify as jest.Mock).mockReturnValue({ id: "user-id" });
-//       (User.findById as jest.Mock).mockResolvedValue({ isVerified: false, save: jest.fn() });
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-email")
-//           .send({ token: "mock-token" });
-
-//       expect(response.status).toBe(200);
-//       expect(response.body.message).toBe("Email verified successfully");
-//   });
-
-//   test("should return 400 for expired token", async () => {
-//     (jwt.verify as jest.Mock).mockImplementation(() => {
-//           throw new Error("Token expired");
-//       });
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-email")
-//           .send({ token: "mock-token" });
-
-//       expect(response.status).toBe(400);
-//       expect(response.body.message).toBe("Invalid or expired token");
-//   });
-// });
-
-// describe("POST /api/auth/verify-token", () => {
-//   test("should validate token successfully", async () => {
-//       (jwt.verify as jest.Mock).mockReturnValue({ id: "user-id" });
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-token")
-//           .send({ token: "mock-token" });
-
-//       expect(response.status).toBe(200);
-//       expect(response.body.message).toBe("Token is valid");
-//   });
-
-//   test("should return 400 for invalid token", async () => {
-//     (jwt.verify as jest.Mock).mockImplementation(() => {
-//           throw new Error("Invalid token");
-//       });
-
-//       const response = await supertest(app)
-//           .post("/api/auth/verify-token")
-//           .send({ token: "mock-token" });
-
-//       expect(response.status).toBe(400);
-//       expect(response.body.message).toBe("Invalid or expired token");
-//   });
-// });
-
 afterAll(async () => {
   await mongoose.connection.close();
   await jest.restoreAllMocks();
 
-  // Wrap server.close in a promise
   await new Promise((resolve, reject) => {
     server.close((err) => {
       if (err) return reject(err);
-      console.log("Test server stopped");
       resolve(undefined);
     });
   });

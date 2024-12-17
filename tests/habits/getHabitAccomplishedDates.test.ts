@@ -24,8 +24,8 @@ jest.mock("../../controllers/accomplished.controllers", () => ({
 }));
 
 describe("getHabitAccomplishedDates", () => {
-  let mockReq: any;  // Use 'any' here or cast to the correct type
-  let mockRes: any;  // Similarly for 'mockRes'
+  let mockReq: any;  
+  let mockRes: any;  
 
   beforeEach(() => {
     mockReq = {
@@ -97,7 +97,7 @@ describe("getHabitAccomplishedDates", () => {
         accomplished: accomplishedMock,
         streak: expect.objectContaining({
           currentStreak: expect.any(Number),
-          currentStreakDates: expect.any(Array), // Use currentStreakDates here
+          currentStreakDates: expect.any(Array), 
         }),
       })
     );
