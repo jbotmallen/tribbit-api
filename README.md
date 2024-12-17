@@ -29,6 +29,8 @@
     ```
     To create a MongoDB database, follow the steps for the setup in the official <a href="https://www.mongodb.com/resources/products/fundamentals/get-started" target="_blank">MongoDB Documentation</a>.
 
+    To get your SendGrid API key, follow the steps in setting up a <a href="https://www.twilio.com/docs/sendgrid/for-developers/sending-email/quickstart-nodejs" target="_blank">SendGrid Account</a>.
+
 4. **Configure TypeScript:**
 
     Ensure `tsconfig.json` is properly configured. The provided `tsconfig.json` should be sufficient for most setups.
