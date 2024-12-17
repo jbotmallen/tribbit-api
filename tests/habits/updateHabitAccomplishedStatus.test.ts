@@ -29,8 +29,8 @@ jest.mock("../../utils/response-handlers", () => ({
 }));
 
 describe("updateHabitAccomplishedStatus", () => {
-    let mockReq: any;  // Use 'any' here or cast to the correct type
-    let mockRes: any;  // Similarly for 'mockRes'
+    let mockReq: any;  
+    let mockRes: any;  
 
   beforeEach(() => {
     mockReq = {

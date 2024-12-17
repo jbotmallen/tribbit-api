@@ -3,7 +3,7 @@ import { updateProfileInformation } from '../../controllers/user.controllers';
 import { User } from '../../models/user.models';
 import jwt from 'jsonwebtoken';
 
-// Mock dependencies
+
 jest.mock('../../utils/db', () => ({
   connectToDatabase: jest.fn()
 }));
@@ -22,10 +22,10 @@ describe('Update Profile Information', () => {
   let statusMock: jest.Mock;
 
   beforeEach(() => {
-    // Reset mocks before each test
+    
     jest.clearAllMocks();
 
-    // Create mock response objects
+    
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnValue({ json: jsonMock });
 
@@ -39,7 +39,7 @@ describe('Update Profile Information', () => {
       json: jsonMock
     };
 
-    // Mock process.env
+    
     process.env.JWT_SECRET = 'test_secret';
   });
 
@@ -47,7 +47,7 @@ describe('Update Profile Information', () => {
     it('should return 400 if no username is provided', async () => {
       mockReq.cookies = {};
       mockReq.cookies.token = jwt.sign({ id: 'user123' }, process.env.JWT_SECRET!);
-      mockReq.body = {}; // No username
+      mockReq.body = {}; 
 
       await updateProfileInformation(
         mockReq as Request, 
@@ -64,7 +64,7 @@ describe('Update Profile Information', () => {
 
     it('should return 401 if no token is present', async () => {
       mockReq.body = { username: 'newusername' }; 
-      // No token set
+      
 
       await updateProfileInformation(
         mockReq as Request, 
@@ -80,13 +80,13 @@ describe('Update Profile Information', () => {
     });
 
     it('should return 404 if user is not found', async () => {
-      // Mock token
+      
       const token = jwt.sign({ id: 'user123' }, process.env.JWT_SECRET!);
       mockReq.cookies = {};
       mockReq.cookies.token = token;
       mockReq.body = { username: 'newusername' };
 
-      // Mock User.findOne to return null
+      
       (User.findOne as jest.Mock).mockResolvedValue(null);
 
       await updateProfileInformation(
@@ -105,20 +105,20 @@ describe('Update Profile Information', () => {
 
   describe('Username Update Scenarios', () => {
     it('should return 400 if new username is the same as current username', async () => {
-      // Mock existing user
+      
       const existingUser = {
         username: 'currentuser',
         _id: 'user123',
         save: jest.fn()
       };
 
-      // Mock token
+      
       const token = jwt.sign({ id: 'user123' }, process.env.JWT_SECRET!);
       mockReq.cookies = {};
       mockReq.cookies.token = token;
       mockReq.body = { username: 'currentuser' };
 
-      // Mock User.findOne to return existing user
+      
       (User.findOne as jest.Mock).mockResolvedValue(existingUser);
 
       await updateProfileInformation(
@@ -135,24 +135,24 @@ describe('Update Profile Information', () => {
     });
 
     it('should return 400 if username already exists', async () => {
-      // Mock existing user
+      
       const existingUser = {
         username: 'currentuser',
         _id: 'user123',
         save: jest.fn()
       };
 
-      // Mock token
+      
       const token = jwt.sign({ id: 'user123' }, process.env.JWT_SECRET!);
       mockReq.cookies = {};
       mockReq.cookies.token = token;
       mockReq.body = { username: 'newusername' };
 
-      // Mock User.findOne 
-      // First call returns the current user
+      
+      
       (User.findOne as jest.Mock)
         .mockResolvedValueOnce(existingUser)
-        // Second call returns a user with the new username
+        
         .mockResolvedValueOnce({ username: 'newusername' });
 
       await updateProfileInformation(
@@ -169,21 +169,21 @@ describe('Update Profile Information', () => {
     });
 
     it('should successfully update username', async () => {
-      // Mock existing user
+      
       const existingUser = {
         username: 'currentuser',
         _id: 'user123',
         save: jest.fn()
       };
 
-      // Mock token
+      
       const token = jwt.sign({ id: 'user123' }, process.env.JWT_SECRET!);
       mockReq.cookies = {};
       mockReq.cookies.token = token;
       mockReq.body = { username: 'newusername' };
 
-      // Mock User.findOne to return existing user
-      // Second call returns null to simulate no existing user with new username
+      
+      
       (User.findOne as jest.Mock)
         .mockResolvedValueOnce(existingUser)
         .mockResolvedValueOnce(null);
@@ -206,10 +206,10 @@ describe('Update Profile Information', () => {
 
   describe('Error Handling', () => {
     it('should handle unexpected errors', async () => {
-      // Mock an error scenario
+      
       (User.findOne as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
 
-      // Mock token
+      
       const token = jwt.sign({ id: 'user123' }, process.env.JWT_SECRET!);
       mockReq.cookies = {};
       mockReq.cookies.token = token;
@@ -220,7 +220,7 @@ describe('Update Profile Information', () => {
         mockRes as Response
       );
 
-      // Verify generic error handler was called
+      
       expect(statusMock).toHaveBeenCalledWith(500);
     });
   });
