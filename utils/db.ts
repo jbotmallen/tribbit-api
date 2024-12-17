@@ -3,8 +3,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
+const MONGODB_URI =
+    process.env.NODE_ENV === "production" ? process.env.MONGODB_URI : process.env.MONGODB_URI_TEST;
 
 let cached = (global as any).mongoose || { conn: null, promise: null };
 
