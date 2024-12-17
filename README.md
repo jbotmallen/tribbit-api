@@ -27,6 +27,7 @@
     ```sh
     cp .env.example .env
     ```
+    To create a MongoDB database, follow the steps for the setup in the official <a href="https://www.mongodb.com/resources/products/fundamentals/get-started" target="_blank">MongoDB Documentation</a>.
 
 4. **Configure TypeScript:**
 
@@ -53,6 +54,16 @@
     ```sh
     npm start
     ```
+
+4. **Run the tests**
+
+    ```
+    npm t
+    ```
+
+<hr/>
+
+#
 
 ## Project Structure
 
